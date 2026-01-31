@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>2H Cockpit</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+background: #0a0a0a;
+color: #e0e0e0;
+padding: 16px;
+min-height: 100vh;
+}
+.header {
+display: flex;
+justify-content: space-between;
+align-items: center;
+margin-bottom: 16px;
+padding-bottom: 12px;
+border-bottom: 1px solid #333;
+}
+h1 { font-size: 22px; font-weight: 600; color: #fff; }
+.updated { font-size: 11px; color: #888; }
+.summary-bar {
+display: flex;
+gap: 12px;
+margin-bottom: 20px;
+flex-wrap: wrap;
+}
+.summary-card {
+background: #111;
+border: 1px solid #333;
+border-radius: 8px;
+padding: 12px 16px;
+min-width: 100px;
+}
+.summary-card .label {
+font-size: 10px;
+color: #999;
+text-transform: uppercase;
+letter-spacing: 0.5px;
+margin-bottom: 4px;
+}
+.summary-card .value {
+font-size: 20px;
+font-weight: 600;
+}
+.summary-card .sub {
+font-size: 11px;
+color: #888;
+}
+.green { color: #4ade80; }
+.amber { color: #facc15; }
+.red { color: #f87171; }
+.blue { color: #60a5fa; }
+.section {
+margin-bottom: 24px;
+}
+.section-header {
+display: flex;
+align-items: center;
+gap: 10px;
+margin-bottom: 12px;
+padding-bottom: 8px;
+border-bottom: 1px solid #333;
+}
+.section-title {
+font-size: 13px;
+font-weight: 600;
+color: #ccc;
+text-transform: uppercase;
+letter-spacing: 1px;
+}
+.section-count {
+font-size: 11px;
+color: #888;
+background: #1a1a1a;
+padding: 2px 8px;
+border-radius: 10px;
+}
+.alert-section { border-left: 3px solid #f87171; padding-left: 12px; }
+.watch-section { border-left: 3px solid #facc15; padding-left: 12px; }
+.ok-section { border-left: 3px solid #4ade80; padding-left: 12px; }
+.info-section { border-left: 3px solid #60a5fa; padding-left: 12px; }
+.position-grid {
+display: grid;
+grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+gap: 10px;
+}
+.position-card {
+background: #111;
+border: 1px solid #333;
+border-radius: 6px;
+padding: 12px;
+}
+.position-card.alert {
+border-color: rgba(248, 113, 113, 0.5);
+background: rgba(248, 113, 113, 0.05);
+}
+.position-card.watch {
+border-color: rgba(250, 204, 21, 0.4);
+background: rgba(250, 204, 21, 0.03);
+}
+.position-card.ok {
+border-color: rgba(74, 222, 128, 0.3);
+}
+.card-row1 {
+display: flex;
+justify-content: space-between;
+align-items: flex-start;
+margin-bottom: 8px;
+}
+.card-symbol {
+font-size: 16px;
+font-weight: 700;
+color: #fff;
+}
+.card-group {
+font-size: 10px;
+color: #888;
+margin-top: 2px;
+}
+.card-verdict {
+font-size: 10px;
+padding: 4px 10px;
+border-radius: 4px;
+font-weight: 600;
+}
+.card-verdict.buy { background: rgba(74, 222, 128, 0.2); color: #4ade80; }
+.card-verdict.wait { background: rgba(250, 204, 21, 0.2); color: #fde047; }
+.card-verdict.cooling { background: rgba(251, 146, 60, 0.2); color: #fdba74; }
+.card-verdict.avoid { background: rgba(248, 113, 113, 0.2); color: #fca5a5; }
+.card-verdict.recovering { background: rgba(96, 165, 250, 0.2); color: #93c5fd; }
+.card-verdict.turning { background: rgba(96, 165, 250, 0.2); color: #93c5fd; }
+.card-verdict.decelerating { background: rgba(156, 163, 175, 0.2); color: #d1d5db; }
+.card-verdict.watch { background: rgba(156, 163, 175, 0.2); color: #d1d5db; }
+.card-verdict.early { background: rgba(120, 113, 108, 0.2); color: #a8a29e; }
+.card-verdict.other { background: rgba(107, 114, 128, 0.2); color: #bbb; }
+.card-metrics {
+display: grid;
+grid-template-columns: repeat(4, 1fr);
+gap: 8px;
+margin-bottom: 10px;
+}
+.metric {
+text-align: center;
+padding: 6px 4px;
+background: #0a0a0a;
+border-radius: 4px;
+border: 1px solid #222;
+}
+.metric-label {
+font-size: 9px;
+color: #888;
+text-transform: uppercase;
+margin-bottom: 2px;
+}
+.metric-value {
+font-size: 13px;
+font-weight: 600;
+font-variant-numeric: tabular-nums;
+}
+.card-sizing {
+display: grid;
+grid-template-columns: repeat(4, 1fr);
+gap: 8px;
+padding-top: 8px;
+border-top: 1px solid #333;
+margin-bottom: 8px;
+}
+.sizing-item {
+text-align: center;
+}
+.sizing-label {
+font-size: 9px;
+color: #999;
+text-transform: uppercase;
+}
+.sizing-value {
+font-size: 12px;
+font-weight: 600;
+color: #ddd;
+}
+.card-alert {
+font-size: 11px;
+padding: 6px 8px;
+background: rgba(248, 113, 113, 0.15);
+border-radius: 4px;
+color: #fca5a5;
+margin-top: 6px;
+}
+.card-alert.warning {
+background: rgba(250, 204, 21, 0.12);
+color: #fde047;
+}
+.card-alert.info {
+background: rgba(150, 150, 150, 0.1);
+color: #aaa;
+}
+.empty-state {
+color: #666;
+font-size: 12px;
+padding: 20px;
+text-align: center;
+}
+.refresh-btn {
+padding: 6px 12px;
+background: #1a1a1a;
+border: 1px solid #444;
+border-radius: 4px;
+color: #aaa;
+font-size: 11px;
+cursor: pointer;
+}
+.refresh-btn:hover {
+border-color: #4ade80;
+color: #4ade80;
+}
+</style>
+</head>
+<body>
+<div class="header">
+<h1>Cockpit</h1>
+<div style="display:flex;align-items:center;gap:12px;">
+<span class="updated" id="updated">Loading...</span>
+<button class="refresh-btn" onclick="fetchData()">Refresh</button>
+</div>
+</div>
+<div class="summary-bar" id="summaryBar"></div>
+<div class="section alert-section" id="alertSection">
+<div class="section-header">
+<span class="section-title">ACTION REQUIRED</span>
+<span class="section-count" id="alertCount">0</span>
+</div>
+<div class="position-grid" id="alertGrid"></div>
+</div>
+<div class="section watch-section" id="watchSection">
+<div class="section-header">
+<span class="section-title">WATCH CLOSELY</span>
+<span class="section-count" id="watchCount">0</span>
+</div>
+<div class="position-grid" id="watchGrid"></div>
+</div>
+<div class="section ok-section" id="okSection">
+<div class="section-header">
+<span class="section-title">HEALTHY</span>
+<span class="section-count" id="okCount">0</span>
+</div>
+<div class="position-grid" id="okGrid"></div>
+</div>
+<div class="section info-section" id="infoSection" style="display:none;">
+<div class="section-header">
+<span class="section-title">NO SIGNAL DATA</span>
+<span class="section-count" id="infoCount">0</span>
+</div>
+<div class="position-grid" id="infoGrid"></div>
+</div>
+<script>
+const SUPABASE_URL = 'https://pzskvslhfaituzyukasl.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB6c2t2c2xoZmFpdHV6eXVrYXNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQwNzQyNTAsImV4cCI6MjA3OTY1MDI1MH0.FEZTIIQ4zgdb7uswf70XZI9Ph6ykSeDkfxooIcRIOMw';
+
+// Get verdict class - matches dashboard logic
+function getVerdictClass(verdict) {
+if (!verdict) return 'other';
+if (verdict.includes('BUY')) return 'buy';
+if (verdict.includes('WAIT') || verdict.includes('SURGE')) return 'wait';
+if (verdict.includes('COOLING')) return 'cooling';
+if (verdict.includes('AVOID')) return 'avoid';
+if (verdict.includes('RECOVERING')) return 'recovering';
+if (verdict.includes('MOM TURNING') || verdict.includes('TURN SIGNAL')) return 'turning';
+if (verdict.includes('DECELERATING')) return 'decelerating';
+if (verdict.includes('EARLY')) return 'early';
+if (verdict.includes('WATCH') && !verdict.includes('COOLING')) return 'watch';
+return 'other';
+}
+
+function getVerdictText(verdict) {
+if (!verdict) return 'NO DATA';
+return verdict.replace(/[🟢🟡🟠⚪⛔]\s*/g, '').trim();
+}
+
+function classifyPosition(d) {
+if (!d.verdict || d.angle === null) return 'info';
+const verdict = d.verdict;
+if (verdict.includes('AVOID')) return 'alert';
+if (verdict.includes('DECELERATING')) return 'watch';
+if (verdict.includes('COOLING')) return 'watch';
+if (verdict.includes('WAIT')) return 'watch';
+if (verdict.includes('RECOVERING')) return 'watch';
+if (verdict.includes('TURN')) return 'watch';
+if (verdict.includes('EARLY')) return 'watch';
+if (verdict.includes('WATCH')) return 'watch';
+return 'ok';
+}
+
+function getAlerts(d) {
+const alerts = [];
+if (d.issue) {
+const isUrgent = d.verdict && (d.verdict.includes('AVOID') || d.verdict.includes('DECELERATING'));
+const isWarning = d.verdict && (d.verdict.includes('COOLING') || d.verdict.includes('WAIT') || d.verdict.includes('RECOVERING') || d.verdict.includes('TURN'));
+alerts.push({
+type: isUrgent ? 'alert' : isWarning ? 'warning' : 'info',
+text: d.issue
+});
+}
+if (d.watch_for) {
+alerts.push({ type: 'info', text: 'Watch: ' + d.watch_for });
+}
+return alerts;
+}
+
+function renderCard(d, category) {
+const angle = parseFloat(d.angle) || 0;
+const rotn = parseFloat(d.rotn) || 0;
+const tSlp = parseFloat(d.t_slp) || 0;
+const m5dz = parseFloat(d.m5dz) || 0;
+const weight = parseFloat(d.portfolio_pct) || 0;
+const maxPct = parseFloat(d.effective_max_pct) || 0;
+const pctOfMax = parseFloat(d.pct_of_max) || 0;
+const d1 = parseFloat(d['1d%']) || 0;
+const verdictClass = getVerdictClass(d.verdict);
+const alerts = getAlerts(d);
+const angleCol = (angle >= 38 && angle <= 48) ? 'green' : (angle < 25 || angle > 55) ? 'red' : '';
+const rotnCol = rotn > 5 ? 'green' : rotn < -5 ? 'red' : '';
+const tSlpCol = tSlp >= 15 ? 'green' : tSlp < 0 ? 'red' : '';
+const m5dzCol = m5dz > 1.5 ? 'amber' : m5dz < -1.5 ? 'red' : '';
+const pctOfMaxCol = pctOfMax > 120 ? 'red' : pctOfMax < 50 ? 'green' : '';
+const d1Col = d1 > 0.5 ? 'green' : d1 < -0.5 ? 'red' : '';
+const alertsHtml = alerts.map(a => '<div class="card-alert ' + a.type + '">' + a.text + '</div>').join('');
+return '<div class="position-card ' + category + '">' +
+'<div class="card-row1"><div><div class="card-symbol">' + d.symbol + '</div><div class="card-group">' + (d.group_name || '') + '</div></div>' +
+'<span class="card-verdict ' + verdictClass + '">' + getVerdictText(d.verdict) + '</span></div>' +
+'<div class="card-metrics">' +
+'<div class="metric"><div class="metric-label">Angle</div><div class="metric-value ' + angleCol + '">' + angle.toFixed(0) + '°</div></div>' +
+'<div class="metric"><div class="metric-label">Rotn</div><div class="metric-value ' + rotnCol + '">' + (rotn > 0 ? '+' : '') + rotn.toFixed(0) + '°</div></div>' +
+'<div class="metric"><div class="metric-label">T.Slp</div><div class="metric-value ' + tSlpCol + '">' + (tSlp > 0 ? '+' : '') + tSlp.toFixed(0) + '</div></div>' +
+'<div class="metric"><div class="metric-label">m5dZ</div><div class="metric-value ' + m5dzCol + '">' + (m5dz > 0 ? '+' : '') + m5dz.toFixed(2) + '</div></div>' +
+'</div><div class="card-sizing">' +
+'<div class="sizing-item"><div class="sizing-label">1D %</div><div class="sizing-value ' + d1Col + '">' + (d1 > 0 ? '+' : '') + d1.toFixed(2) + '%</div></div>' +
+'<div class="sizing-item"><div class="sizing-label">Current</div><div class="sizing-value">' + weight.toFixed(1) + '%</div></div>' +
+'<div class="sizing-item"><div class="sizing-label">Max</div><div class="sizing-value">' + maxPct.toFixed(1) + '%</div></div>' +
+'<div class="sizing-item"><div class="sizing-label">% of Max</div><div class="sizing-value ' + pctOfMaxCol + '">' + pctOfMax.toFixed(0) + '%</div></div>' +
+'</div>' + alertsHtml + '</div>';
+}
+
+function renderInfoCard(d) {
+const weight = parseFloat(d.portfolio_pct) || 0;
+const maxPct = parseFloat(d.effective_max_pct) || 0;
+const pctOfMax = parseFloat(d.pct_of_max) || 0;
+const pctOfMaxCol = pctOfMax > 120 ? 'red' : pctOfMax < 50 ? 'green' : '';
+return '<div class="position-card"><div class="card-row1"><div><div class="card-symbol">' + d.symbol + '</div><div class="card-group">' + (d.group_name || '') + '</div></div>' +
+'<span class="card-verdict other">NO DATA</span></div>' +
+'<div class="card-sizing" style="border-top:none;padding-top:0;">' +
+'<div class="sizing-item"><div class="sizing-label">1D %</div><div class="sizing-value">-</div></div>' +
+'<div class="sizing-item"><div class="sizing-label">Current</div><div class="sizing-value">' + weight.toFixed(1) + '%</div></div>' +
+'<div class="sizing-item"><div class="sizing-label">Max</div><div class="sizing-value">' + maxPct.toFixed(1) + '%</div></div>' +
+'<div class="sizing-item"><div class="sizing-label">% of Max</div><div class="sizing-value ' + pctOfMaxCol + '">' + pctOfMax.toFixed(0) + '%</div></div>' +
+'</div></div>';
+}
+
+async function fetchData() {
+try {
+const res = await fetch(SUPABASE_URL + '/rest/v1/v_positions_with_sizing?select=symbol,group_name,value_gbp,portfolio_pct,effective_max_pct,pct_of_max',
+{ headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }});
+const positions = await res.json();
+const symbols = positions.filter(function(p) { return p.symbol !== 'CASH'; }).map(function(p) { return p.symbol; });
+if (symbols.indexOf('BIT-XBTE') >= 0 && symbols.indexOf('BTCUSD') < 0) symbols.push('BTCUSD');
+const signalRes = await fetch(SUPABASE_URL + '/rest/v1/v_live_verdicts?symbol=in.(' + symbols.join(',') + ')&select=*',
+{ headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }});
+const signals = await signalRes.json();
+const signalMap = {};
+signals.forEach(function(s) { signalMap[s.symbol] = s; });
+if (signalMap['BTCUSD']) signalMap['BIT-XBTE'] = Object.assign({}, signalMap['BTCUSD'], { symbol: 'BIT-XBTE' });
+const merged = positions.filter(function(p) { return p.symbol !== 'CASH'; }).map(function(p) { return Object.assign({}, p, signalMap[p.symbol]); });
+var alertItems = [], watchItems = [], okItems = [], infoItems = [];
+merged.forEach(function(d) {
+var cat = classifyPosition(d);
+if (cat === 'alert') alertItems.push(d);
+else if (cat === 'watch') watchItems.push(d);
+else if (cat === 'ok') okItems.push(d);
+else infoItems.push(d);
+});
+var verdictOrder = { 'AVOID': 1, 'DECELERATING': 2, 'TURN': 3, 'COOLING': 4, 'RECOVERING': 5, 'WAIT': 6, 'SURGE': 7, 'BUY': 8 };
+function getVerdictPriority(verdict) {
+if (!verdict) return 99;
+for (var key in verdictOrder) { if (verdict.indexOf(key) >= 0) return verdictOrder[key]; }
+return 50;
+}
+function byVerdictThenWeight(a, b) {
+var vA = getVerdictPriority(a.verdict), vB = getVerdictPriority(b.verdict);
+if (vA !== vB) return vA - vB;
+return parseFloat(b.portfolio_pct) - parseFloat(a.portfolio_pct);
+}
+alertItems.sort(byVerdictThenWeight);
+watchItems.sort(byVerdictThenWeight);
+okItems.sort(byVerdictThenWeight);
+infoItems.sort(function(a, b) { return parseFloat(b.portfolio_pct) - parseFloat(a.portfolio_pct); });
+var totalPositions = merged.length;
+var alertWeight = alertItems.reduce(function(s, d) { return s + parseFloat(d.portfolio_pct || 0); }, 0);
+var watchWeight = watchItems.reduce(function(s, d) { return s + parseFloat(d.portfolio_pct || 0); }, 0);
+var okWeight = okItems.reduce(function(s, d) { return s + parseFloat(d.portfolio_pct || 0); }, 0);
+document.getElementById('summaryBar').innerHTML =
+'<div class="summary-card"><div class="label">Positions</div><div class="value">' + totalPositions + '</div></div>' +
+'<div class="summary-card"><div class="label">Alert</div><div class="value red">' + alertItems.length + '</div><div class="sub">' + alertWeight.toFixed(1) + '% weight</div></div>' +
+'<div class="summary-card"><div class="label">Watch</div><div class="value amber">' + watchItems.length + '</div><div class="sub">' + watchWeight.toFixed(1) + '% weight</div></div>' +
+'<div class="summary-card"><div class="label">Healthy</div><div class="value green">' + okItems.length + '</div><div class="sub">' + okWeight.toFixed(1) + '% weight</div></div>';
+document.getElementById('alertCount').textContent = alertItems.length;
+document.getElementById('alertGrid').innerHTML = alertItems.length ? alertItems.map(function(d) { return renderCard(d, 'alert'); }).join('') : '<div class="empty-state">No alerts - all clear</div>';
+document.getElementById('watchCount').textContent = watchItems.length;
+document.getElementById('watchGrid').innerHTML = watchItems.length ? watchItems.map(function(d) { return renderCard(d, 'watch'); }).join('') : '<div class="empty-state">Nothing to watch</div>';
+document.getElementById('okCount').textContent = okItems.length;
+document.getElementById('okGrid').innerHTML = okItems.length ? okItems.map(function(d) { return renderCard(d, 'ok'); }).join('') : '<div class="empty-state">No healthy positions</div>';
+document.getElementById('infoCount').textContent = infoItems.length;
+if (infoItems.length > 0) {
+document.getElementById('infoSection').style.display = 'block';
+document.getElementById('infoGrid').innerHTML = infoItems.map(function(d) { return renderInfoCard(d); }).join('');
+} else {
+document.getElementById('infoSection').style.display = 'none';
+}
+var latest = merged.reduce(function(max, r) { var t = new Date(r.updated_at); return t > max ? t : max; }, new Date(0));
+var timeStr = latest.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+var dateStr = latest.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+document.getElementById('updated').textContent = 'Live: ' + dateStr + ' ' + timeStr;
+} catch (err) {
+console.error('Failed to fetch:', err);
+document.getElementById('updated').textContent = 'Error loading data';
+}
+}
+fetchData();
+setInterval(fetchData, 5 * 60 * 1000);
+</script>
+</body>
+</html>

@@ -1,0 +1,1068 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>2H Radar: Angle-Rotation</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { 
+font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+background: #0a0a0a; 
+color: #e0e0e0; 
+padding: 16px;
+min-height: 100vh;
+}
+.header { 
+display: flex; 
+justify-content: space-between; 
+align-items: flex-start; 
+margin-bottom: 12px;
+flex-wrap: wrap;
+gap: 12px;
+}
+h1 { font-size: 20px; font-weight: 600; color: #fff; }
+.subtitle { color: #666; font-size: 12px; margin-top: 4px; }
+.controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+select, button { 
+padding: 6px 10px; 
+background: #151515; 
+border: 1px solid #2a2a2a; 
+border-radius: 4px; 
+color: #e0e0e0; 
+font-size: 11px; 
+cursor: pointer;
+}
+select:hover, button:hover { border-color: #444; }
+button.active { background: #2a2a2a; border-color: #4ade80; color: #4ade80; }
+button.clear-btn { border-color: #666; color: #999; }
+button.clear-btn:hover { border-color: #f87171; color: #f87171; }
+select.primary {
+background: #1a2a1a;
+border-color: #4ade80;
+color: #4ade80;
+font-weight: 500;
+}
+.main-layout {
+display: grid;
+grid-template-columns: 1fr 340px;
+gap: 16px;
+height: calc(100vh - 100px);
+}
+@media (max-width: 1100px) {
+.main-layout { grid-template-columns: 1fr; }
+.results-panel { max-height: 350px; }
+}
+.chart-wrapper {
+display: flex;
+gap: 0;
+min-height: 450px;
+}
+.y-axis-label {
+writing-mode: vertical-rl;
+transform: rotate(180deg);
+color: #888;
+font-size: 11px;
+text-transform: uppercase;
+letter-spacing: 1px;
+padding-right: 8px;
+display: flex;
+align-items: center;
+justify-content: center;
+font-weight: 500;
+}
+.chart-container { 
+position: relative; 
+flex: 1;
+background: #0d0d0d; 
+border: 1px solid #1a1a1a; 
+border-radius: 6px; 
+overflow: hidden;
+}
+.chart-area {
+position: absolute;
+top: 30px;
+left: 45px;
+right: 15px;
+bottom: 45px;
+}
+.x-axis-label {
+position: absolute;
+bottom: 12px;
+left: 50%;
+transform: translateX(-50%);
+color: #888;
+font-size: 11px;
+text-transform: uppercase;
+letter-spacing: 1px;
+font-weight: 500;
+}
+.quadrant-label {
+position: absolute;
+font-size: 14px;
+font-weight: 700;
+letter-spacing: 3px;
+opacity: 0.35;
+pointer-events: none;
+text-transform: uppercase;
+white-space: nowrap;
+}
+.quadrant-label.top-left { color: #f87171; }
+.quadrant-label.top-center { color: #4ade80; }
+.quadrant-label.top-right { color: #fbbf24; }
+.quadrant-label.bottom-left { color: #f87171; }
+.quadrant-label.bottom-center { color: #9ca3af; }
+.quadrant-label.bottom-right { color: #fbbf24; }
+.tick-label {
+position: absolute;
+color: #555;
+font-size: 9px;
+}
+.grid-line {
+position: absolute;
+background: #1a1a1a;
+}
+.grid-line.major { background: #252525; }
+.grid-line.zero { background: #333; }
+.point {
+position: absolute;
+width: 8px;
+height: 8px;
+border-radius: 50%;
+transform: translate(-50%, -50%);
+cursor: pointer;
+transition: all 0.12s;
+z-index: 10;
+}
+.point:hover {
+transform: translate(-50%, -50%) scale(1.8);
+z-index: 100;
+}
+.point.buy { background: #4ade80; }
+.point.wait { background: #facc15; }
+.point.cooling { background: #fb923c; }
+.point.avoid { background: #f87171; }
+.point.recovering { background: #60a5fa; }
+.point.turning { background: #60a5fa; }
+.point.decelerating { background: #9ca3af; }
+.point.watch { background: #9ca3af; }
+.point.early { background: #78716c; }
+.point.other { background: #6b7280; }
+.point.position { box-shadow: 0 0 0 2px #fff; }
+.point.highlighted { 
+box-shadow: 0 0 0 3px rgba(255,255,255,0.8);
+z-index: 50;
+}
+.point.off-chart {
+opacity: 0.6;
+border: 2px dashed #666;
+background: transparent !important;
+}
+.point.off-chart::after {
+content: '';
+position: absolute;
+width: 0;
+height: 0;
+}
+.point.off-left::after {
+border-top: 4px solid transparent;
+border-bottom: 4px solid transparent;
+border-right: 6px solid #888;
+left: -8px;
+top: 50%;
+transform: translateY(-50%);
+}
+.point.off-right::after {
+border-top: 4px solid transparent;
+border-bottom: 4px solid transparent;
+border-left: 6px solid #888;
+right: -8px;
+top: 50%;
+transform: translateY(-50%);
+}
+.point.quadrant-flip {
+box-shadow: 0 0 0 2px #facc15, 0 0 8px rgba(250, 204, 21, 0.5);
+}
+.point.quadrant-flip.position {
+box-shadow: 0 0 0 2px #fff, 0 0 0 4px #facc15, 0 0 10px rgba(250, 204, 21, 0.5);
+}
+.flip-badge {
+position: absolute;
+font-size: 7px;
+font-weight: 700;
+color: #facc15;
+pointer-events: none;
+transform: translate(-50%, 100%);
+text-shadow: 1px 1px 2px #000;
+}
+.result-flip {
+color: #facc15;
+font-size: 8px;
+font-weight: 600;
+}
+.point-label {
+position: absolute;
+font-size: 8px;
+color: #bbb;
+white-space: nowrap;
+pointer-events: none;
+transform: translate(-50%, -140%);
+z-index: 5;
+text-shadow: 1px 1px 2px #000, -1px -1px 2px #000;
+}
+/* Results panel */
+.results-panel {
+background: #0d0d0d;
+border: 1px solid #1a1a1a;
+border-radius: 6px;
+display: flex;
+flex-direction: column;
+overflow: hidden;
+}
+.results-header-bar {
+padding: 8px 12px;
+background: #111;
+border-bottom: 1px solid #1a1a1a;
+font-size: 11px;
+color: #666;
+display: flex;
+justify-content: space-between;
+align-items: center;
+}
+.results-count { color: #fff; font-weight: 600; }
+.results-columns {
+display: grid;
+grid-template-columns: 52px 48px 38px 38px 38px 42px;
+gap: 4px;
+padding: 6px 12px;
+background: #0a0a0a;
+border-bottom: 1px solid #1a1a1a;
+font-size: 9px;
+color: #999;
+text-transform: uppercase;
+letter-spacing: 0.5px;
+font-weight: 600;
+}
+.col-right { text-align: right; }
+.results-list {
+flex: 1;
+overflow-y: auto;
+}
+.result-item {
+display: grid;
+grid-template-columns: 52px 48px 38px 38px 38px 42px;
+gap: 4px;
+padding: 7px 12px;
+cursor: pointer;
+align-items: center;
+font-size: 11px;
+border-left: 3px solid transparent;
+border-bottom: 1px solid #111;
+}
+.result-item:hover {
+background: #1a1a1a;
+}
+.result-item.highlighted {
+background: #1a2a1a;
+}
+.result-item.position {
+border-left-color: #4ade80;
+}
+.result-symbol {
+font-weight: 600;
+color: #fff;
+font-size: 10px;
+}
+.result-verdict {
+font-size: 8px;
+padding: 2px 4px;
+border-radius: 3px;
+text-align: center;
+font-weight: 600;
+}
+.result-verdict.buy { background: rgba(74, 222, 128, 0.25); color: #4ade80; }
+.result-verdict.wait { background: rgba(250, 204, 21, 0.25); color: #fde047; }
+.result-verdict.cooling { background: rgba(251, 146, 60, 0.25); color: #fdba74; }
+.result-verdict.avoid { background: rgba(248, 113, 113, 0.25); color: #fca5a5; }
+.result-verdict.recovering { background: rgba(96, 165, 250, 0.25); color: #93c5fd; }
+.result-verdict.turning { background: rgba(96, 165, 250, 0.25); color: #93c5fd; }
+.result-verdict.decelerating { background: rgba(156, 163, 175, 0.25); color: #d1d5db; }
+.result-verdict.watch { background: rgba(156, 163, 175, 0.25); color: #d1d5db; }
+.result-verdict.early { background: rgba(120, 113, 108, 0.25); color: #a8a29e; }
+.result-verdict.other { background: rgba(107, 114, 128, 0.25); color: #d1d5db; }
+.result-metric {
+text-align: right;
+color: #888;
+font-size: 10px;
+}
+.result-metric.positive { color: #4ade80; }
+.result-metric.negative { color: #f87171; }
+.result-metric.warn { color: #facc15; }
+/* Tooltip - fixed width with wrapping */
+.tooltip {
+position: fixed;
+background: #1a1a1a;
+border: 1px solid #333;
+border-radius: 6px;
+padding: 12px 14px;
+font-size: 11px;
+z-index: 1000;
+pointer-events: none;
+display: none;
+width: 280px;
+max-width: 280px;
+box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+}
+.tooltip.show { display: block; }
+.tooltip-header { 
+display: flex; 
+justify-content: space-between; 
+align-items: center;
+margin-bottom: 2px;
+}
+.tooltip-symbol { font-size: 15px; font-weight: 600; color: #fff; }
+.tooltip-verdict-tag {
+font-size: 9px;
+padding: 2px 6px;
+border-radius: 3px;
+font-weight: 600;
+}
+.tooltip-verdict-tag.buy { background: rgba(74, 222, 128, 0.25); color: #4ade80; }
+.tooltip-verdict-tag.wait { background: rgba(250, 204, 21, 0.25); color: #fde047; }
+.tooltip-verdict-tag.cooling { background: rgba(251, 146, 60, 0.25); color: #fdba74; }
+.tooltip-verdict-tag.avoid { background: rgba(248, 113, 113, 0.25); color: #fca5a5; }
+.tooltip-verdict-tag.recovering { background: rgba(96, 165, 250, 0.25); color: #93c5fd; }
+.tooltip-verdict-tag.turning { background: rgba(96, 165, 250, 0.25); color: #93c5fd; }
+.tooltip-verdict-tag.decelerating { background: rgba(156, 163, 175, 0.25); color: #d1d5db; }
+.tooltip-verdict-tag.watch { background: rgba(156, 163, 175, 0.25); color: #d1d5db; }
+.tooltip-name { color: #888; font-size: 10px; margin-bottom: 10px; }
+.tooltip-grid {
+display: grid;
+grid-template-columns: 1fr 1fr;
+gap: 6px 16px;
+}
+.tooltip-row { display: flex; justify-content: space-between; }
+.tooltip-label { color: #888; font-size: 10px; }
+.tooltip-value { color: #fff; font-weight: 500; }
+.tooltip-value.positive { color: #4ade80; }
+.tooltip-value.negative { color: #f87171; }
+.tooltip-value.warn { color: #facc15; }
+.tooltip-section {
+margin-top: 10px;
+padding-top: 8px;
+border-top: 1px solid #2a2a2a;
+}
+.tooltip-insight {
+font-size: 10px;
+color: #aaa;
+line-height: 1.5;
+word-wrap: break-word;
+}
+.tooltip-insight strong { color: #fff; }
+/* Legend */
+.legend {
+display: flex;
+gap: 12px;
+padding: 8px 12px;
+background: #0d0d0d;
+border: 1px solid #1a1a1a;
+border-radius: 6px;
+margin-top: 12px;
+flex-wrap: wrap;
+justify-content: center;
+}
+.legend-item {
+display: flex;
+align-items: center;
+gap: 4px;
+font-size: 10px;
+color: #666;
+}
+.legend-dot {
+width: 8px;
+height: 8px;
+border-radius: 50%;
+}
+.legend-dot.buy { background: #4ade80; }
+.legend-dot.wait { background: #facc15; }
+.legend-dot.cooling { background: #fb923c; }
+.legend-dot.avoid { background: #f87171; }
+.legend-dot.recovering { background: #60a5fa; }
+.legend-dot.turning { background: #60a5fa; }
+.legend-dot.decelerating { background: #9ca3af; }
+.legend-dot.watch { background: #9ca3af; }
+.legend-position {
+width: 8px;
+height: 8px;
+border-radius: 50%;
+background: #666;
+box-shadow: 0 0 0 2px #fff;
+}
+</style>
+</head>
+<body>
+<div class="header">
+<div>
+<h1>Angle-Rotation Radar</h1>
+<div class="subtitle"><span id="lastUpdated" style="color:#666;font-size:11px;">Loading...</span></div>
+</div>
+<div class="controls">
+<button id="refreshBtn" style="background:#1a3a1a;border-color:#4ade80;color:#4ade80;">↻ Refresh</button>
+<select id="dataSourceToggle" class="primary">
+<option value="intraday">Intraday</option>
+<option value="eod">EOD</option>
+</select>
+<input type="text" id="tickerSearch" placeholder="Search ticker..." style="padding:6px 10px;background:#151515;border:1px solid #2a2a2a;border-radius:4px;color:#e0e0e0;font-size:11px;width:100px;">
+<select id="presetFilter" class="primary">
+<option value="">Select View...</option>
+<option value="all">All Tickers</option>
+<option value="bullseye">Bullseye (Ideal + Rising + BUY)</option>
+<option value="emerging">Emerging (Ideal + Rising)</option>
+<option value="intraday-dips">Intraday Dips (BUY down today)</option>
+<option value="surges">Surges (Unconfirmed)</option>
+<option value="danger">Danger (Falling Rotation)</option>
+</select>
+<select id="angleZoneFilter">
+<option value="">All Angles</option>
+<option value="weak">Weak (&lt;25)</option>
+<option value="ideal">Ideal (38-48)</option>
+<option value="extended">Extended (&gt;55)</option>
+</select>
+<select id="rotationFilter">
+<option value="">All Rotation</option>
+<option value="rising">Rising (&gt;+5)</option>
+<option value="rising-stable">Rising/Stable (&gt;-5)</option>
+<option value="stable">Stable (+/-5)</option>
+<option value="falling">Falling (&lt;-5)</option>
+</select>
+<select id="verdictFilter">
+<option value="">All Verdicts</option>
+<option value="BUY">🟢 BUY</option>
+<option value="EARLY">⚪ EARLY</option>
+<option value="WAIT">🟡 WAIT</option>
+<option value="WATCH">⚪ WATCH</option>
+<option value="COOLING">🟠 COOLING</option>
+<option value="DECELERATING">⚪ DECELERATING</option>
+<option value="TURNING">⚪ MOM TURNING</option>
+<option value="RECOVERING">⚪ RECOVERING</option>
+<option value="AVOID">⛔ AVOID</option>
+</select>
+<select id="groupFilter">
+<option value="">All Groups</option>
+</select>
+<select id="perf1dFilter">
+<option value="">All 1d%</option>
+<option value="down">Down today</option>
+<option value="up">Up today</option>
+</select>
+<button id="positionsOnly">My Positions</button>
+<button id="clearFilters" class="clear-btn">Clear</button>
+</div>
+</div>
+<div class="main-layout">
+<div class="chart-wrapper">
+<div class="y-axis-label">ROTATION (5-Day Change)</div>
+<div class="chart-container" id="chartContainer">
+<div class="chart-area" id="chartArea"></div>
+<div class="x-axis-label">ANGLE (Trend-Momentum Balance)</div>
+</div>
+</div>
+<div class="results-panel">
+<div class="results-header-bar">
+<span>RESULTS</span>
+<span class="results-count" id="resultsCount">0</span>
+</div>
+<div class="results-columns">
+<span>Symbol</span>
+<span>Verdict</span>
+<span class="col-right">Ang</span>
+<span class="col-right">Rotn</span>
+<span class="col-right">T.Slp</span>
+<span class="col-right">m5dZ</span>
+</div>
+<div class="results-list" id="resultsList"></div>
+</div>
+</div>
+<div class="legend">
+<div class="legend-item"><div class="legend-dot buy"></div>BUY</div>
+<div class="legend-item"><div class="legend-dot wait"></div>WAIT</div>
+<div class="legend-item"><div class="legend-dot cooling"></div>COOLING</div>
+<div class="legend-item"><div class="legend-dot recovering"></div>RECOVERING</div>
+<div class="legend-item"><div class="legend-dot turning"></div>TURNING</div>
+<div class="legend-item"><div class="legend-dot decelerating"></div>DECEL</div>
+<div class="legend-item"><div class="legend-dot avoid"></div>AVOID</div>
+<div class="legend-item" style="margin-left:12px;border-left:1px solid #333;padding-left:12px;"><div class="legend-position"></div>My Position</div>
+<div class="legend-item"><div style="width:8px;height:8px;border-radius:50%;border:2px dashed #666;"></div>Off-chart</div>
+</div>
+<div class="tooltip" id="tooltip"></div>
+<script>
+const SUPABASE_URL = 'https://pzskvslhfaituzyukasl.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB6c2t2c2xoZmFpdHV6eXVrYXNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQwNzQyNTAsImV4cCI6MjA3OTY1MDI1MH0.FEZTIIQ4zgdb7uswf70XZI9Ph6ykSeDkfxooIcRIOMw';
+let allData = [];
+let positionSymbols = new Set();
+let positionsOnly = false;
+let angleZoneFilter = '';
+let rotationFilter = '';
+let verdictFilter = '';
+let groupFilter = '';
+let highlightedSymbol = null;
+let dataSource = 'intraday';
+const chartArea = document.getElementById('chartArea');
+const tooltip = document.getElementById('tooltip');
+const resultsList = document.getElementById('resultsList');
+const angleMin = -45;
+const angleMax = 95;
+const rotnMin = -45;
+const rotnMax = 85;
+const presets = {
+'all': { angle: '', rotation: '', verdict: '', perf1d: '' },
+'bullseye': { angle: 'ideal', rotation: 'rising-stable', verdict: 'BUY', perf1d: '' },
+'emerging': { angle: 'ideal', rotation: 'rising', verdict: '', perf1d: '' },
+'intraday-dips': { angle: '', rotation: '', verdict: 'BUY', perf1d: 'down' },
+'surges': { angle: '', rotation: 'rising', verdict: 'WAIT', perf1d: '' },
+'danger': { angle: '', rotation: 'falling', verdict: '', perf1d: '' }
+};
+let perf1dFilter = '';
+function getAngleZone(angle) {
+if (angle < 25) return 'weak';
+if (angle >= 38 && angle <= 48) return 'ideal';
+if (angle > 55) return 'extended';
+return 'transition';
+}
+function getRotationZone(rotn) {
+if (rotn > 5) return 'rising';
+if (rotn >= -5) return 'stable';
+return 'falling';
+}
+function matchesRotationFilter(rotn, filter) {
+if (!filter) return true;
+if (filter === 'rising') return rotn > 5;
+if (filter === 'rising-stable') return rotn >= -5;
+if (filter === 'stable') return rotn >= -5 && rotn <= 5;
+if (filter === 'falling') return rotn < -5;
+return true;
+}
+// Get verdict class - matches dashboard logic
+function getVerdictClass(verdict) {
+if (!verdict) return 'other';
+if (verdict.includes('BUY')) return 'buy';
+if (verdict.includes('WAIT') || verdict.includes('SURGE')) return 'wait';
+if (verdict.includes('COOLING')) return 'cooling';
+if (verdict.includes('AVOID')) return 'avoid';
+if (verdict.includes('RECOVERING')) return 'recovering';
+if (verdict.includes('MOM TURNING') || verdict.includes('TURN SIGNAL')) return 'turning';
+if (verdict.includes('DECELERATING')) return 'decelerating';
+if (verdict.includes('EARLY')) return 'early';
+if (verdict.includes('WATCH') && !verdict.includes('COOLING')) return 'watch';
+return 'other';
+}
+// Get verdict filter key - matches filter dropdown values
+function getVerdictFilterKey(verdict) {
+if (!verdict) return '';
+if (verdict.includes('BUY')) return 'BUY';
+if (verdict.includes('WAIT') || verdict.includes('SURGE')) return 'WAIT';
+if (verdict.includes('COOLING')) return 'COOLING';
+if (verdict.includes('AVOID')) return 'AVOID';
+if (verdict.includes('RECOVERING')) return 'RECOVERING';
+if (verdict.includes('MOM TURNING') || verdict.includes('TURN SIGNAL')) return 'TURNING';
+if (verdict.includes('DECELERATING')) return 'DECELERATING';
+if (verdict.includes('EARLY')) return 'EARLY';
+if (verdict.includes('WATCH') && !verdict.includes('COOLING')) return 'WATCH';
+return '';
+}
+function getVerdictShort(verdict) {
+if (!verdict) return '?';
+if (verdict.includes('STEADY')) return 'STDY';
+if (verdict.includes('BUY')) return 'BUY';
+if (verdict.includes('SURGE')) return 'SURGE';
+if (verdict.includes('WAIT')) return 'WAIT';
+if (verdict.includes('HOLD')) return 'HOLD';
+if (verdict.includes('COOLING')) return 'COOL';
+if (verdict.includes('AVOID')) return 'AVOID';
+if (verdict.includes('RECOVERING')) return 'RECV';
+if (verdict.includes('MOM TURNING')) return 'TURN';
+if (verdict.includes('TURN SIGNAL')) return 'TSIG';
+if (verdict.includes('DECELERATING')) return 'DECEL';
+if (verdict.includes('EARLY')) return 'EARLY';
+if (verdict.includes('WATCH')) return 'WATCH';
+return '?';
+}
+// Adjust rotation for quadrant flips (|rotn| > 90° means crossing quadrants)
+function adjustRotation(rotn, angle) {
+const rawRotn = parseFloat(rotn);
+const currentAngle = parseFloat(angle);
+if (Math.abs(rawRotn) > 90) {
+if (rawRotn < -90 && currentAngle > 0) {
+return { value: 85, isFlip: true, direction: 'breakout' };
+} else if (rawRotn > 90 && currentAngle < 0) {
+return { value: -85, isFlip: true, direction: 'breakdown' };
+} else if (rawRotn > 90 && currentAngle > 0) {
+return { value: 85, isFlip: true, direction: 'surge' };
+} else if (rawRotn < -90 && currentAngle < 0) {
+return { value: -85, isFlip: true, direction: 'collapse' };
+}
+}
+return { value: rawRotn, isFlip: false, direction: null };
+}
+function angleToX(angle) {
+const width = chartArea.clientWidth;
+return ((angle - angleMin) / (angleMax - angleMin)) * width;
+}
+function rotnToY(rotn) {
+const height = chartArea.clientHeight;
+return height - ((rotn - rotnMin) / (rotnMax - rotnMin)) * height;
+}
+function drawChart() {
+chartArea.innerHTML = '';
+[-40, -20, 0, 25, 38, 48, 55, 70, 90].forEach(angle => {
+if (angle < angleMin || angle > angleMax) return;
+const line = document.createElement('div');
+line.className = 'grid-line' + ([25, 38, 48, 55].includes(angle) ? ' major' : '');
+line.style.left = angleToX(angle) + 'px';
+line.style.top = '0';
+line.style.width = '1px';
+line.style.height = '100%';
+chartArea.appendChild(line);
+const label = document.createElement('div');
+label.className = 'tick-label';
+label.style.left = angleToX(angle) + 'px';
+label.style.bottom = '-16px';
+label.style.transform = 'translateX(-50%)';
+label.textContent = angle + '°';
+chartArea.appendChild(label);
+});
+[-40, -30, -20, -10, -5, 0, 5, 10, 20, 30, 50, 70, 80].forEach(rotn => {
+if (rotn < rotnMin || rotn > rotnMax) return;
+const line = document.createElement('div');
+line.className = 'grid-line' + (rotn === 0 ? ' zero' : [-5, 5].includes(rotn) ? ' major' : '');
+line.style.left = '0';
+line.style.top = rotnToY(rotn) + 'px';
+line.style.width = '100%';
+line.style.height = '1px';
+chartArea.appendChild(line);
+const label = document.createElement('div');
+label.className = 'tick-label';
+label.style.left = '-28px';
+label.style.top = rotnToY(rotn) + 'px';
+label.style.transform = 'translateY(-50%)';
+label.textContent = (rotn > 0 ? '+' : '') + rotn + '°';
+chartArea.appendChild(label);
+});
+const labels = [
+{ text: 'WEAK', x: 8, y: 45, class: 'top-left' },
+{ text: 'BUY ZONE', x: 43, y: 45, class: 'top-center' },
+{ text: 'EXTENDED', x: 72, y: 45, class: 'top-right' },
+{ text: 'AVOID', x: 8, y: -20, class: 'bottom-left' },
+{ text: 'FADING', x: 43, y: -20, class: 'bottom-center' },
+{ text: 'LATE', x: 72, y: -20, class: 'bottom-right' },
+];
+labels.forEach(l => {
+const label = document.createElement('div');
+label.className = 'quadrant-label ' + l.class;
+label.textContent = l.text;
+label.style.left = angleToX(l.x) + 'px';
+label.style.top = rotnToY(l.y) + 'px';
+label.style.transform = 'translate(-50%, -50%)';
+chartArea.appendChild(label);
+});
+}
+function getFilteredData() {
+let filtered = [...allData];
+const searchTerm = document.getElementById('tickerSearch').value.trim().toUpperCase();
+if (searchTerm) {
+filtered = filtered.filter(d => 
+d.symbol.toUpperCase().includes(searchTerm) || 
+(d.name && d.name.toUpperCase().includes(searchTerm))
+);
+}
+if (positionsOnly) {
+filtered = filtered.filter(d => positionSymbols.has(d.symbol));
+}
+if (groupFilter) {
+filtered = filtered.filter(d => d.group_name === groupFilter);
+}
+if (verdictFilter) {
+filtered = filtered.filter(d => getVerdictFilterKey(d.verdict) === verdictFilter);
+}
+if (angleZoneFilter) {
+filtered = filtered.filter(d => getAngleZone(parseFloat(d.angle)) === angleZoneFilter);
+}
+if (rotationFilter) {
+filtered = filtered.filter(d => matchesRotationFilter(parseFloat(d.rotn), rotationFilter));
+}
+if (perf1dFilter === 'down') {
+filtered = filtered.filter(d => {
+const val = parseFloat(d['1d%']);
+return !isNaN(val) && val < 0;
+});
+} else if (perf1dFilter === 'up') {
+filtered = filtered.filter(d => {
+const val = parseFloat(d['1d%']);
+return !isNaN(val) && val > 0;
+});
+}
+return filtered;
+}
+function drawPoints() {
+chartArea.querySelectorAll('.point, .point-label, .flip-badge').forEach(el => el.remove());
+const filtered = getFilteredData();
+filtered.forEach(d => {
+let angle = parseFloat(d.angle);
+const rawRotn = parseFloat(d.rotn);
+const rotAdj = adjustRotation(rawRotn, angle);
+let rotn = rotAdj.value;
+const isFlip = rotAdj.isFlip;
+const flipDirection = rotAdj.direction;
+let offChart = false;
+let offLeft = false;
+let offRight = false;
+if (angle < angleMin) {
+angle = angleMin + 5;
+offChart = true;
+offLeft = true;
+} else if (angle > angleMax) {
+angle = angleMax - 5;
+offChart = true;
+offRight = true;
+}
+if (rotn < rotnMin) {
+rotn = rotnMin + 3;
+offChart = true;
+} else if (rotn > rotnMax) {
+rotn = rotnMax - 3;
+offChart = true;
+}
+const x = angleToX(angle);
+const y = rotnToY(rotn);
+const point = document.createElement('div');
+point.className = 'point ' + getVerdictClass(d.verdict);
+if (positionSymbols.has(d.symbol)) point.classList.add('position');
+if (d.symbol === highlightedSymbol) point.classList.add('highlighted');
+if (isFlip) point.classList.add('quadrant-flip');
+if (offChart) {
+point.classList.add('off-chart');
+if (offLeft) point.classList.add('off-left');
+if (offRight) point.classList.add('off-right');
+}
+point.style.left = x + 'px';
+point.style.top = y + 'px';
+Object.assign(point.dataset, {
+symbol: d.symbol,
+name: d.name,
+verdict: d.verdict,
+angle: parseFloat(d.angle).toFixed(1),
+rotn: rawRotn.toFixed(1),
+rotnAdj: rotn.toFixed(1),
+isFlip: isFlip ? 'true' : 'false',
+flipDirection: flipDirection || '',
+trend: d.trend,
+mom: d.mom,
+tSlp: d.t_slp,
+mSlp: d.m_slp,
+m5dz: d.m5dz,
+rank: d.rank,
+group: d.group_name,
+issue: d.issue || '',
+perf1d: d['1d%'] || 0
+});
+point.addEventListener('mouseenter', (e) => showTooltipForData(d, e));
+point.addEventListener('mousemove', (e) => positionTooltip(e));
+point.addEventListener('mouseleave', hideTooltip);
+point.addEventListener('mouseenter', () => highlightSymbol(d.symbol));
+point.addEventListener('mouseleave', () => highlightSymbol(null));
+chartArea.appendChild(point);
+if (isFlip) {
+const badge = document.createElement('div');
+badge.className = 'flip-badge';
+badge.style.left = x + 'px';
+badge.style.top = y + 'px';
+badge.textContent = '⚡' + flipDirection.toUpperCase().slice(0,4);
+chartArea.appendChild(badge);
+}
+const label = document.createElement('div');
+label.className = 'point-label';
+label.style.left = x + 'px';
+label.style.top = y + 'px';
+label.textContent = d.symbol;
+chartArea.appendChild(label);
+});
+}
+function renderResultsList() {
+const filtered = getFilteredData();
+document.getElementById('resultsCount').textContent = filtered.length;
+filtered.sort((a, b) => (a.rank || 999) - (b.rank || 999));
+resultsList.innerHTML = filtered.map(d => {
+const angle = parseFloat(d.angle);
+const rawRotn = parseFloat(d.rotn);
+const rotAdj = adjustRotation(rawRotn, angle);
+const rotn = rotAdj.value;
+const isFlip = rotAdj.isFlip;
+const flipDir = rotAdj.direction;
+const tSlp = parseFloat(d.t_slp);
+const m5dz = parseFloat(d.m5dz);
+const verdictClass = getVerdictClass(d.verdict);
+const isPosition = positionSymbols.has(d.symbol);
+let m5dzClass = '';
+if (m5dz > 1.5) m5dzClass = 'warn';
+else if (m5dz < -1.5) m5dzClass = 'negative';
+const rotnDisplay = isFlip 
+? `<span class="result-flip">⚡${flipDir.slice(0,4).toUpperCase()}</span>`
+: `<span class="${rotn > 0 ? 'positive' : rotn < 0 ? 'negative' : ''}">${rotn > 0 ? '+' : ''}${rotn.toFixed(0)}°</span>`;
+return `
+<div class="result-item ${isPosition ? 'position' : ''} ${d.symbol === highlightedSymbol ? 'highlighted' : ''}" 
+data-symbol="${d.symbol}"
+data-name="${d.name}"
+data-verdict="${d.verdict}"
+data-angle="${angle}"
+data-rotn="${rawRotn}"
+data-rotnadj="${rotn}"
+data-isflip="${isFlip}"
+data-flipdir="${flipDir || ''}"
+data-trend="${d.trend}"
+data-mom="${d.mom}"
+data-tslp="${d.t_slp}"
+data-mslp="${d.m_slp}"
+data-m5dz="${d.m5dz}"
+data-rank="${d.rank}"
+data-group="${d.group_name}"
+data-issue="${d.issue || ''}"
+data-perf1d="${d['1d%'] || 0}">
+<span class="result-symbol">${d.symbol}</span>
+<span class="result-verdict ${verdictClass}">${getVerdictShort(d.verdict)}</span>
+<span class="result-metric">${angle.toFixed(0)}°</span>
+<span class="result-metric">${rotnDisplay}</span>
+<span class="result-metric ${tSlp > 15 ? 'positive' : tSlp < 0 ? 'negative' : ''}">${tSlp > 0 ? '+' : ''}${tSlp.toFixed(0)}</span>
+<span class="result-metric ${m5dzClass}">${m5dz > 0 ? '+' : ''}${m5dz.toFixed(1)}</span>
+</div>
+`;
+}).join('');
+resultsList.querySelectorAll('.result-item').forEach(item => {
+item.addEventListener('mouseenter', (e) => {
+highlightSymbol(item.dataset.symbol);
+showTooltipForElement(item, e);
+});
+item.addEventListener('mousemove', (e) => positionTooltip(e));
+item.addEventListener('mouseleave', () => {
+highlightSymbol(null);
+hideTooltip();
+});
+});
+}
+function highlightSymbol(symbol) {
+highlightedSymbol = symbol;
+chartArea.querySelectorAll('.point').forEach(p => {
+p.classList.toggle('highlighted', p.dataset.symbol === symbol);
+});
+resultsList.querySelectorAll('.result-item').forEach(item => {
+item.classList.toggle('highlighted', item.dataset.symbol === symbol);
+});
+}
+function showTooltipForData(d, e) {
+const angle = parseFloat(d.angle);
+const rawRotn = parseFloat(d.rotn);
+const rotAdj = adjustRotation(rawRotn, angle);
+const trend = parseFloat(d.trend);
+const mom = parseFloat(d.mom);
+const tSlp = parseFloat(d.t_slp);
+const mSlp = parseFloat(d.m_slp || 0);
+const m5dz = parseFloat(d.m5dz);
+const verdictClass = getVerdictClass(d.verdict);
+const insight = d.issue || '';
+const angleClass = (angle >= 38 && angle <= 48) ? 'positive' : (angle < 25 || angle > 55) ? 'negative' : '';
+const rotnClass = rotAdj.value > 5 ? 'positive' : rotAdj.value < -5 ? 'negative' : '';
+const trendClass = trend >= 50 ? 'positive' : trend < 8 ? 'negative' : '';
+const momClass = mom > 50 ? 'positive' : mom < 0 ? 'negative' : '';
+const tSlpClass = tSlp >= 15 ? 'positive' : tSlp < 0 ? 'negative' : '';
+const mSlpClass = mSlp > 0 ? 'positive' : mSlp < 0 ? 'negative' : '';
+const m5dzClass = m5dz > 1.5 ? 'warn' : m5dz < -1.5 ? 'negative' : '';
+const rotnDisplay = rotAdj.isFlip 
+? `<span style="color:#facc15">⚡ ${rotAdj.direction.toUpperCase()}</span> <span style="color:#666;font-size:9px">(raw: ${rawRotn.toFixed(0)}°)</span>`
+: `<span class="${rotnClass}">${rawRotn > 0 ? '+' : ''}${rawRotn.toFixed(1)}°</span>`;
+tooltip.innerHTML = `
+<div class="tooltip-header">
+<span class="tooltip-symbol">${d.symbol}</span>
+<span class="tooltip-verdict-tag ${verdictClass}">${getVerdictShort(d.verdict)}</span>
+</div>
+<div class="tooltip-name">${d.name} · #${d.rank}</div>
+<div class="tooltip-grid">
+<div class="tooltip-row"><span class="tooltip-label">Angle</span><span class="tooltip-value ${angleClass}">${angle.toFixed(1)}°</span></div>
+<div class="tooltip-row"><span class="tooltip-label">Rotation</span><span class="tooltip-value">${rotnDisplay}</span></div>
+<div class="tooltip-row"><span class="tooltip-label">Trend</span><span class="tooltip-value ${trendClass}">${trend.toFixed(0)}</span></div>
+<div class="tooltip-row"><span class="tooltip-label">Momentum</span><span class="tooltip-value ${momClass}">${mom.toFixed(0)}</span></div>
+<div class="tooltip-row"><span class="tooltip-label">T.Slope</span><span class="tooltip-value ${tSlpClass}">${tSlp > 0 ? '+' : ''}${tSlp.toFixed(0)}</span></div>
+<div class="tooltip-row"><span class="tooltip-label">M.Slope</span><span class="tooltip-value ${mSlpClass}">${mSlp > 0 ? '+' : ''}${mSlp.toFixed(0)}</span></div>
+<div class="tooltip-row"><span class="tooltip-label">m5dZ</span><span class="tooltip-value ${m5dzClass}">${m5dz > 0 ? '+' : ''}${m5dz.toFixed(2)}</span></div>
+<div class="tooltip-row"><span class="tooltip-label">1d%</span><span class="tooltip-value ${parseFloat(d['1d%']) >= 0 ? 'positive' : 'negative'}">${parseFloat(d['1d%']) >= 0 ? '+' : ''}${parseFloat(d['1d%']).toFixed(2)}%</span></div>
+</div>
+${insight ? `<div class="tooltip-section"><div class="tooltip-insight">${insight}</div></div>` : ''}
+`;
+tooltip.classList.add('show');
+positionTooltip(e);
+}
+function showTooltipForElement(el, e) {
+const d = {
+symbol: el.dataset.symbol,
+name: el.dataset.name,
+verdict: el.dataset.verdict,
+angle: el.dataset.angle,
+rotn: el.dataset.rotn,
+trend: el.dataset.trend,
+mom: el.dataset.mom,
+t_slp: el.dataset.tslp,
+m_slp: el.dataset.mslp,
+m5dz: el.dataset.m5dz,
+rank: el.dataset.rank,
+group_name: el.dataset.group,
+issue: el.dataset.issue,
+'1d%': el.dataset.perf1d
+};
+showTooltipForData(d, e);
+}
+function positionTooltip(e) {
+let x = e.clientX + 15;
+let y = e.clientY - 10;
+tooltip.style.left = x + 'px';
+tooltip.style.top = y + 'px';
+const rect = tooltip.getBoundingClientRect();
+if (rect.right > window.innerWidth - 20) {
+tooltip.style.left = (e.clientX - rect.width - 15) + 'px';
+}
+if (rect.bottom > window.innerHeight - 20) {
+tooltip.style.top = (e.clientY - rect.height - 10) + 'px';
+}
+}
+function hideTooltip() {
+tooltip.classList.remove('show');
+}
+function applyPreset(presetName) {
+const preset = presets[presetName];
+if (!preset) return;
+angleZoneFilter = preset.angle;
+rotationFilter = preset.rotation;
+verdictFilter = preset.verdict;
+perf1dFilter = preset.perf1d || '';
+document.getElementById('angleZoneFilter').value = preset.angle;
+document.getElementById('rotationFilter').value = preset.rotation;
+document.getElementById('verdictFilter').value = preset.verdict;
+document.getElementById('perf1dFilter').value = preset.perf1d || '';
+refresh();
+}
+function clearFilters() {
+angleZoneFilter = '';
+rotationFilter = '';
+verdictFilter = '';
+groupFilter = '';
+perf1dFilter = '';
+positionsOnly = false;
+document.getElementById('tickerSearch').value = '';
+document.getElementById('presetFilter').value = '';
+document.getElementById('angleZoneFilter').value = '';
+document.getElementById('rotationFilter').value = '';
+document.getElementById('verdictFilter').value = '';
+document.getElementById('groupFilter').value = '';
+document.getElementById('perf1dFilter').value = '';
+document.getElementById('positionsOnly').classList.remove('active');
+refresh();
+}
+function refresh() {
+drawChart();
+drawPoints();
+renderResultsList();
+}
+async function fetchData() {
+try {
+const posRes = await fetch(`${SUPABASE_URL}/rest/v1/positions?select=symbol`, {
+headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+});
+if (posRes.ok) {
+const positions = await posRes.json();
+positionSymbols = new Set(positions.map(p => p.symbol));
+if (positionSymbols.has('BIT-XBTE')) positionSymbols.add('BTCUSD');
+}
+const res = await fetch(`${SUPABASE_URL}/rest/v1/${dataSource === 'eod' ? 'v_eod_verdicts' : 'v_live_verdicts'}?select=*&watchlist=in.(UK ETFS,BOTH)&order=rank.asc`, {
+headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+});
+if (!res.ok) throw new Error('Fetch failed');
+allData = await res.json();
+if (allData.length > 0) {
+const latest = allData.reduce((max, r) => {
+const t = new Date(r.updated_at);
+return t > max ? t : max;
+}, new Date(0));
+const timeStr = latest.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+const dateStr = latest.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+const sourceLabel = dataSource === 'eod' ? 'EOD' : 'Live';
+document.getElementById('lastUpdated').textContent = `${sourceLabel}: ${dateStr} ${timeStr}`;
+}
+const groups = [...new Set(allData.map(d => d.group_name).filter(Boolean))].sort();
+const groupSelect = document.getElementById('groupFilter');
+groupSelect.innerHTML = '<option value="">All Groups</option>';
+groups.forEach(g => {
+const opt = document.createElement('option');
+opt.value = g;
+opt.textContent = g;
+groupSelect.appendChild(opt);
+});
+refresh();
+} catch (err) {
+console.error('Failed to fetch data:', err);
+document.getElementById('lastUpdated').textContent = 'Error loading data';
+}
+}
+// Event listeners
+document.getElementById('refreshBtn').addEventListener('click', () => {
+document.getElementById('lastUpdated').textContent = 'Refreshing...';
+fetchData();
+});
+document.getElementById('dataSourceToggle').addEventListener('change', (e) => {
+dataSource = e.target.value;
+document.getElementById('lastUpdated').textContent = 'Loading...';
+fetchData();
+});
+document.getElementById('tickerSearch').addEventListener('input', () => {
+document.getElementById('presetFilter').value = '';
+refresh();
+});
+document.getElementById('presetFilter').addEventListener('change', (e) => {
+if (e.target.value) {
+document.getElementById('tickerSearch').value = '';
+applyPreset(e.target.value);
+}
+});
+document.getElementById('positionsOnly').addEventListener('click', (e) => {
+positionsOnly = !positionsOnly;
+e.target.classList.toggle('active', positionsOnly);
+document.getElementById('presetFilter').value = '';
+refresh();
+});
+document.getElementById('clearFilters').addEventListener('click', clearFilters);
+document.getElementById('groupFilter').addEventListener('change', (e) => {
+groupFilter = e.target.value;
+document.getElementById('presetFilter').value = '';
+refresh();
+});
+document.getElementById('perf1dFilter').addEventListener('change', (e) => {
+perf1dFilter = e.target.value;
+document.getElementById('presetFilter').value = '';
+refresh();
+});
+document.getElementById('verdictFilter').addEventListener('change', (e) => {
+verdictFilter = e.target.value;
+document.getElementById('presetFilter').value = '';
+refresh();
+});
+document.getElementById('angleZoneFilter').addEventListener('change', (e) => {
+angleZoneFilter = e.target.value;
+document.getElementById('presetFilter').value = '';
+refresh();
+});
+document.getElementById('rotationFilter').addEventListener('change', (e) => {
+rotationFilter = e.target.value;
+document.getElementById('presetFilter').value = '';
+refresh();
+});
+window.addEventListener('resize', refresh);
+fetchData();
+</script>
+</body>
+</html>
