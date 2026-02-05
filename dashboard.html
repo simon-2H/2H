@@ -315,14 +315,14 @@
     
     let allData = [], positionSymbols = new Set(), allocationData = {}, activeFilters = new Set(['POS']), groupFilter = '', verdictFilter = '', searchTerm = '', dataSource = 'intraday';
     
-    const sectionsBase = [{id:'info',label:'',cols:1},{id:'verdict',label:'VERDICT',cols:3},{id:'levels',label:'LEVELS',cols:2},{id:'slopes',label:'SLOPES',cols:2},{id:'momdir',label:'MOM Δ',cols:4},{id:'maths',label:'MATHS',cols:3},{id:'flags',label:'FLAGS',cols:2},{id:'rank',label:'RANK',cols:3},{id:'price',label:'PRICE %',cols:4}];
-    const sectionsWithSize = [{id:'info',label:'',cols:1},{id:'size',label:'SIZE',cols:4},{id:'verdict',label:'VERDICT',cols:3},{id:'levels',label:'LEVELS',cols:2},{id:'slopes',label:'SLOPES',cols:2},{id:'momdir',label:'MOM Δ',cols:4},{id:'maths',label:'MATHS',cols:3},{id:'flags',label:'FLAGS',cols:2},{id:'rank',label:'RANK',cols:3},{id:'price',label:'PRICE %',cols:4}];
+    const sectionsBase = [{id:'info',label:'',cols:1},{id:'verdict',label:'VERDICT',cols:3},{id:'levels',label:'LEVELS',cols:2},{id:'slopes',label:'SLOPES',cols:3},{id:'momdir',label:'MOM Δ',cols:4},{id:'maths',label:'MATHS',cols:3},{id:'flags',label:'FLAGS',cols:2},{id:'rank',label:'RANK',cols:3},{id:'price',label:'PRICE %',cols:4}];
+    const sectionsWithSize = [{id:'info',label:'',cols:1},{id:'size',label:'SIZE',cols:4},{id:'verdict',label:'VERDICT',cols:3},{id:'levels',label:'LEVELS',cols:2},{id:'slopes',label:'SLOPES',cols:3},{id:'momdir',label:'MOM Δ',cols:4},{id:'maths',label:'MATHS',cols:3},{id:'flags',label:'FLAGS',cols:2},{id:'rank',label:'RANK',cols:3},{id:'price',label:'PRICE %',cols:4}];
     
     const columnsBase = [
       {key:'symbol',label:'Sym',section:'info',freeze:true,freezeClass:'col-symbol',sectionEnd:true},
       {key:'group_name',label:'Grp',section:'verdict'},{key:'verdict',label:'Verdict',section:'verdict'},{key:'issue',label:'Issue',section:'verdict',sectionEnd:true},
       {key:'trend',label:'Trnd',section:'levels',numeric:true,format:'gradient',min:-100,max:100},{key:'mom',label:'Mom',section:'levels',numeric:true,format:'gradient',min:-100,max:100,sectionEnd:true},
-      {key:'t_slp',label:'T.Slp',section:'slopes',numeric:true,format:'gradient',min:-100,max:100},{key:'m_slp',label:'M.Slp',section:'slopes',numeric:true,format:'gradient',min:-100,max:100,sectionEnd:true},
+      {key:'t_slp',label:'T.Slp',section:'slopes',numeric:true,format:'gradient',min:-100,max:100},{key:'t_d5',label:'T.5d',section:'slopes',numeric:true,format:'gradient',min:-60,max:60},{key:'m_slp',label:'M.Slp',section:'slopes',numeric:true,format:'gradient',min:-100,max:100,sectionEnd:true},
       {key:'m1d',label:'m1d',section:'momdir',numeric:true,format:'gradient',min:-100,max:100},{key:'m3d',label:'m3d',section:'momdir',numeric:true,format:'gradient',min:-100,max:100},{key:'m5d',label:'m5d',section:'momdir',numeric:true,format:'gradient',min:-100,max:100},{key:'accel',label:'Accl',section:'momdir',numeric:true,sectionEnd:true},
       {key:'angle',label:'Ang',section:'maths',numeric:true,format:'angle'},{key:'rotn',label:'Rotn',section:'maths',numeric:true,format:'rotn'},{key:'m5dz',label:'m5dZ',section:'maths',numeric:true,format:'m5dz',sectionEnd:true},
       {key:'r_flp',label:'Flip',section:'flags',sortType:'flip'},{key:'ext',label:'Ext',section:'flags',sortType:'ext',sectionEnd:true},
@@ -335,7 +335,7 @@
       {key:'port_pct',label:'Port%',section:'size',numeric:true},{key:'max_pct',label:'Max%',section:'size',numeric:true},{key:'pct_of_max',label:'%Max',section:'size',numeric:true,format:'pctMax'},{key:'value',label:'Value',section:'size',numeric:true,sectionEnd:true},
       {key:'group_name',label:'Grp',section:'verdict'},{key:'verdict',label:'Verdict',section:'verdict'},{key:'issue',label:'Issue',section:'verdict',sectionEnd:true},
       {key:'trend',label:'Trnd',section:'levels',numeric:true,format:'gradient',min:-100,max:100},{key:'mom',label:'Mom',section:'levels',numeric:true,format:'gradient',min:-100,max:100,sectionEnd:true},
-      {key:'t_slp',label:'T.Slp',section:'slopes',numeric:true,format:'gradient',min:-100,max:100},{key:'m_slp',label:'M.Slp',section:'slopes',numeric:true,format:'gradient',min:-100,max:100,sectionEnd:true},
+      {key:'t_slp',label:'T.Slp',section:'slopes',numeric:true,format:'gradient',min:-100,max:100},{key:'t_d5',label:'T.5d',section:'slopes',numeric:true,format:'gradient',min:-60,max:60},{key:'m_slp',label:'M.Slp',section:'slopes',numeric:true,format:'gradient',min:-100,max:100,sectionEnd:true},
       {key:'m1d',label:'m1d',section:'momdir',numeric:true,format:'gradient',min:-100,max:100},{key:'m3d',label:'m3d',section:'momdir',numeric:true,format:'gradient',min:-100,max:100},{key:'m5d',label:'m5d',section:'momdir',numeric:true,format:'gradient',min:-100,max:100},{key:'accel',label:'Accl',section:'momdir',numeric:true,sectionEnd:true},
       {key:'angle',label:'Ang',section:'maths',numeric:true,format:'angle'},{key:'rotn',label:'Rotn',section:'maths',numeric:true,format:'rotn'},{key:'m5dz',label:'m5dZ',section:'maths',numeric:true,format:'m5dz',sectionEnd:true},
       {key:'r_flp',label:'Flip',section:'flags',sortType:'flip'},{key:'ext',label:'Ext',section:'flags',sortType:'ext',sectionEnd:true},
@@ -432,7 +432,6 @@
     
     async function fetchPortfolioData(){try{const[perfRes,accountsRes,groupsRes,benchmarkRes]=await Promise.all([fetch(`${SUPABASE_URL}/rest/v1/v_portfolio_performance?select=*`,{headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`}}),fetch(`${SUPABASE_URL}/rest/v1/positions?select=account,symbol,value_gbp`,{headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`}}),fetch(`${SUPABASE_URL}/rest/v1/v_positions_with_sizing?select=symbol,value_gbp,group_name,sub_group,portfolio_pct`,{headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`}}),fetch(`${SUPABASE_URL}/rest/v1/v_live_verdicts?symbol=in.(SPX,NDX,RUT)&select=*`,{headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`}})]);const perfData=await perfRes.json();const accountsRaw=await accountsRes.json();const groupsRaw=await groupsRes.json();const benchmarks=await benchmarkRes.json();console.log('Benchmarks:',benchmarks);renderPerformance(perfData);renderAccounts(accountsRaw);renderGroups(groupsRaw);renderBenchmarks(perfData,benchmarks);}catch(err){console.error('Failed to fetch portfolio data:',err);}}
     
-    // FIX 3: renderPerformance - Highlight YTD row with background tint
     function renderPerformance(perfData){
       const daily=perfData.find(p=>p.period==='Daily');
       const totalValue=parseFloat(daily?.end_value)||0;
@@ -456,7 +455,6 @@
         const sign=gainPct>=0?'+':'';
         const realSign=realPct>=0?'+':'';
         const hasCashFlow=Math.abs(cashFlow)>1;
-        // FIXED: Highlight YTD row
         const rowClass=period==='YTD'?'highlight-row':'';
         return `<tr class="${rowClass}">
           <td><strong>${period}</strong></td>
@@ -469,7 +467,6 @@
       }).join('');
     }
     
-    // FIX 1: renderAccounts - Custom sort order: Si SIPP, Si SIPP II, Si ISA, Wife ISA
     function renderAccounts(accountsRaw){
       const accounts={};
       let totalCash=0,totalValue=0;
@@ -484,7 +481,6 @@
         }
       });
       const tbody=document.getElementById('pf-accounts-body');
-      // FIXED: Custom sort order for accounts
       const accountOrder=['Si SIPP','Si SIPP II','Si ISA','Wife ISA'];
       tbody.innerHTML=Object.entries(accounts).sort((a,b)=>{
         const aIdx=accountOrder.indexOf(a[0]);
@@ -497,7 +493,6 @@
       tbody.innerHTML+=`<tr style="font-weight:600;border-top:2px solid #333;"><td>TOTAL</td><td class="num">£${(totalValue/1000).toFixed(0)}k</td><td class="num">£${totalCash.toFixed(0)}</td></tr>`;
     }
     
-    // FIX 2: renderGroups - Inline text instead of bars for positions
     function renderGroups(groupsRaw){
       const groupStats={};
       let totalValue=0;
@@ -522,7 +517,6 @@
       tbody.innerHTML=sortedGroups.map(([name,data])=>{
         const allocPct=totalValue>0?(data.value/totalValue*100).toFixed(1):0;
         data.positions.sort((a,b)=>b.value-a.value);
-        // FIXED: Inline text instead of bars
         const posText=data.positions.map(pos=>{
           const verdictData=allData.find(d=>d.symbol===pos.symbol);
           const verdict=verdictData?.verdict||'';
@@ -543,7 +537,26 @@
     
     function renderBenchmarks(perfData,benchmarks){const daily=perfData.find(p=>p.period==='Daily'),wow=perfData.find(p=>p.period==='WoW'),mtd=perfData.find(p=>p.period==='MTD');const portPerf={'1d':parseFloat(daily?.gain_pct)||0,'5d':parseFloat(wow?.gain_pct)||0,'1m':parseFloat(mtd?.gain_pct)||0};const grid=document.getElementById('pf-benchmark-grid');let html='<div class="header"></div><div class="header num">1D</div><div class="header num">5D</div><div class="header num">1M</div><div class="header num">3M</div>';html+='<div class="label">Portfolio</div><div class="num '+(portPerf['1d']>=0?'positive':'negative')+'">'+(portPerf['1d']>=0?'+':'')+portPerf['1d'].toFixed(2)+'%</div><div class="num '+(portPerf['5d']>=0?'positive':'negative')+'">'+(portPerf['5d']>=0?'+':'')+portPerf['5d'].toFixed(2)+'%</div><div class="num '+(portPerf['1m']>=0?'positive':'negative')+'">'+(portPerf['1m']>=0?'+':'')+portPerf['1m'].toFixed(2)+'%</div><div class="num">-</div>';const benchOrder=['SPX','NDX','RUT'],benchNames={'SPX':'S&P 500','NDX':'NASDAQ','RUT':'Russell 2000'};benchOrder.forEach(sym=>{const b=benchmarks.find(x=>x.symbol===sym);if(b){const d1=parseFloat(b['1d%'])||0,d5=parseFloat(b['5d%'])||0,m1=parseFloat(b['1m%'])||0,m3=parseFloat(b['3m%'])||0;html+='<div class="label">'+benchNames[sym]+'</div><div class="num '+(d1>=0?'positive':'negative')+'">'+(d1>=0?'+':'')+d1.toFixed(2)+'%</div><div class="num '+(d5>=0?'positive':'negative')+'">'+(d5>=0?'+':'')+d5.toFixed(2)+'%</div><div class="num '+(m1>=0?'positive':'negative')+'">'+(m1>=0?'+':'')+m1.toFixed(2)+'%</div><div class="num '+(m3>=0?'positive':'negative')+'">'+(m3>=0?'+':'')+m3.toFixed(2)+'%</div>';}});grid.innerHTML=html;}
     
-    async function fetchRiskRanges(){try{const[rangesRes,liveRes]=await Promise.all([fetch(SUPABASE_URL+'/rest/v1/hedgeye_risk_ranges?select=*&order=signal_date.desc,symbol.asc&limit=300',{headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}}),fetch(SUPABASE_URL+'/rest/v1/live_readings?select=ticker,close,bar_timestamp&order=bar_timestamp.desc',{headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}})]);if(!rangesRes.ok)throw new Error('Fetch failed');const rangesData=await rangesRes.json();const liveData=liveRes.ok?await liveRes.json():[];const tickerToHedgeye={'SP:SPX':'SPX','NASDAQ:NDX':'COMPQ','TVC:RUT':'RUT','TVC:DJI':'DJI','TVC:VIX':'VIX','AMEX:XLK':'XLK','AMEX:XLI':'XLI','AMEX:XLV':'XLV','AMEX:XLE':'XLE','AMEX:XLF':'XLF','AMEX:XLP':'XLP','AMEX:XLU':'XLU','AMEX:XLY':'XLY','AMEX:XLRE':'XLRE','TVC:US02Y':'UST2Y','TVC:US10Y':'UST10Y','TVC:US30Y':'UST30Y','OANDA:XAUUSD':'GOLD','OANDA:XAGUSD':'SILVER','BITSTAMP:BTCUSD':'BITCOIN','TVC:UKOIL':'BRENT','NYMEX:CL1!':'WTIC','NYMEX:NG1!':'NATGAS','COMEX:HG1!':'COPPER','AMEX:PPLT':'PPLT','AMEX:GDX':'GDX','AMEX:URA':'URA','FX:EURUSD':'EUR/USD','FX:GBPUSD':'GBP/USD','FX:USDJPY':'USD/YEN','TVC:DXY':'USD'};const livePrices={};liveData.forEach(d=>{const hedgeyeSym=tickerToHedgeye[d.ticker];if(hedgeyeSym)livePrices[hedgeyeSym]=parseFloat(d.close);});renderRiskRanges(rangesData,livePrices);}catch(err){console.error('Failed to fetch risk ranges:',err);}}
+    async function fetchRiskRanges(){try{const[rangesRes,liveRes]=await Promise.all([fetch(SUPABASE_URL+'/rest/v1/hedgeye_risk_ranges?select=*&order=signal_date.desc,symbol.asc&limit=300',{headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}}),fetch(SUPABASE_URL+'/rest/v1/live_readings?select=ticker,close,bar_timestamp&order=bar_timestamp.desc',{headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}})]);if(!rangesRes.ok)throw new Error('Fetch failed');const rangesData=await rangesRes.json();const liveData=liveRes.ok?await liveRes.json():[];
+      const tickerToHedgeye={
+        'SP:SPX':'SPX','NASDAQ:NDX':'COMPQ','TVC:RUT':'RUT','TVC:DJI':'DJI',
+        'XETR:DAX':'DAX','SSE:000001':'SSEC',
+        'TVC:US02Y':'UST2Y','TVC:US10Y':'UST10Y','TVC:US30Y':'UST30Y',
+        'OANDA:XAUUSD':'GOLD','OANDA:XAGUSD':'SILVER','AMEX:PPLT':'PPLT',
+        'CAPITALCOM:COPPER':'COPPER','OANDA:WTICOUSD':'WTIC',
+        'BLACKBULL:BRENT':'BRENT','PEPPERSTONE:NATGAS':'NATGAS',
+        'TVC:VIX':'VIX',
+        'TVC:DXY':'USD','CMCMARKETS:EURUSD':'EUR/USD','CMCMARKETS:GBPUSD':'GBP/USD',
+        'FX:USDJPY':'USD/YEN','CMCMARKETS:USDCAD':'CAD/USD',
+        'AMEX:XLK':'XLK','AMEX:XLI':'XLI','AMEX:XLV':'XLV','AMEX:XLE':'XLE',
+        'AMEX:XLF':'XLF','AMEX:XLP':'XLP','AMEX:XLU':'XLU','AMEX:XLY':'XLY','AMEX:XLRE':'XLRE',
+        'BITSTAMP:BTCUSD':'BITCOIN',
+        'AMEX:GDX':'GDX','AMEX:URA':'URA',
+        'NASDAQ:AAPL':'AAPL','NASDAQ:AMZN':'AMZN','NASDAQ:GOOGL':'GOOGL',
+        'NASDAQ:META':'META','NASDAQ:MSFT':'MSFT','NASDAQ:NVDA':'NVDA',
+        'NASDAQ:NFLX':'NFLX','NASDAQ:TSLA':'TSLA','NYSE:ORCL':'ORCL'
+      };
+      const livePrices={};liveData.forEach(d=>{const hedgeyeSym=tickerToHedgeye[d.ticker];if(hedgeyeSym)livePrices[hedgeyeSym]=parseFloat(d.close);});renderRiskRanges(rangesData,livePrices);}catch(err){console.error('Failed to fetch risk ranges:',err);}}
     
     function renderRiskRanges(data,livePrices){
       if(!data.length)return;
@@ -562,35 +575,12 @@
       }else{
         changesBody.innerHTML='<tr><td colspan="4" style="color:#666">No trend changes</td></tr>';
       }
-      const categories={'INDICES':['SPX','COMPQ','RUT','DAX','NIKK','SSEC'],'BONDS':['UST30Y','UST10Y','UST2Y','LQD','HYG'],'COMMODITIES':['GOLD','SILVER','PPLT','COPPER','WTIC','BRENT','NATGAS'],'VOLATILITY':['VIX'],'CURRENCIES':['USD','EUR/USD','GBP/USD','USD/YEN','CAD/USD'],'SECTORS':['XLK','XLF','XLE','XLI','XLV','XLP','XLU','XLY','XLRE'],'CRYPTO':['BITCOIN'],'THEMATIC':['GDX','URA','ITA','IAK','SPMO','PINK']};
+      const categories={'INDICES':['SPX','COMPQ','RUT','DAX','NIKK','SSEC'],'BONDS':['UST30Y','UST10Y','UST2Y','LQD','HYG'],'COMMODITIES':['GOLD','SILVER','PPLT','COPPER','WTIC','BRENT','NATGAS'],'VOLATILITY':['VIX'],'CURRENCIES':['USD','EUR/USD','GBP/USD','USD/YEN','CAD/USD'],'SECTORS':['XLK','XLF','XLE','XLI','XLV','XLP','XLU','XLY','XLRE'],'CRYPTO':['BITCOIN'],'THEMATIC':['GDX','URA','ITA','IAK','SPMO','PINK'],'STOCKS':['AAPL','AMZN','GOOGL','META','MSFT','NVDA','NFLX','TSLA','ORCL']};
       
-      // CHANGED: Consistent green/yellow/red colors for both Prev and Live bars
       const makeBar=(price,buy,sell,pct)=>{
         if(!price||!buy||!sell||buy===sell)return'<div style="display:flex;align-items:center;gap:4px;"><div style="width:50px;height:8px;background:#222;border-radius:2px;"></div><span style="color:#555;font-size:10px;">-</span></div>';
-        
         let barColor,labelText,labelColor;
-        if(pct>100){
-          // Above sell level - show OVER
-          barColor='#f87171';
-          labelText='OVER';
-          labelColor='#f87171';
-        }else if(pct<0){
-          // Below buy level - show UNDER
-          barColor='#4ade80';
-          labelText='UNDER';
-          labelColor='#4ade80';
-        }else{
-          // Within range - green/yellow/red gradient
-          if(pct<=33){
-            barColor='#4ade80';  // Green - near buy
-          }else if(pct<=66){
-            barColor='#facc15';  // Yellow - mid range
-          }else{
-            barColor='#f87171';  // Red - near sell
-          }
-          labelText=pct+'%';
-          labelColor='#666';
-        }
+        if(pct>100){barColor='#f87171';labelText='OVER';labelColor='#f87171';}else if(pct<0){barColor='#4ade80';labelText='UNDER';labelColor='#4ade80';}else{if(pct<=33){barColor='#4ade80';}else if(pct<=66){barColor='#facc15';}else{barColor='#f87171';}labelText=pct+'%';labelColor='#666';}
         const clampedPct=Math.max(0,Math.min(100,pct));
         return'<div style="display:flex;align-items:center;gap:4px;"><div style="position:relative;width:50px;height:8px;background:#222;border-radius:2px;"><div style="position:absolute;left:0;top:0;height:100%;width:'+clampedPct+'%;background:'+barColor+';border-radius:2px;"></div></div><span style="color:'+labelColor+';font-size:10px;font-weight:'+(pct>100||pct<0?'600':'400')+';">'+labelText+'</span></div>';
       };
@@ -609,12 +599,9 @@
           const prevDay=prevMap[d.symbol];
           const live=livePrices[d.symbol];
           const hasLive=live!==undefined&&live!==null;
-          
-          // FIXED: Range calculation - 0% = at buy (good entry), 100% = at sell (take profit)
-          const range=sell-buy;  // Positive range (e.g., 124-94=30 for silver)
-          const prevPct=range?Math.round(((prev-buy)/range)*100):null;  // % from buy toward sell
-          const livePct=hasLive&&range?Math.round(((live-buy)/range)*100):null;  // % from buy toward sell
-          
+          const range=sell-buy;
+          const prevPct=range?Math.round(((prev-buy)/range)*100):null;
+          const livePct=hasLive&&range?Math.round(((live-buy)/range)*100):null;
           const intraday=hasLive&&prev?((live-prev)/prev*100):null;
           html+='<tr><td><strong>'+d.symbol+'</strong></td><td><span style="color:'+trendColor+';font-weight:600;">'+d.trend+'</span></td><td class="num" style="color:#4ade80;">'+buy.toFixed(2)+(prevDay?arrow(buy,prevDay.buy):'')+'</td><td class="num" style="color:#f87171;">'+sell.toFixed(2)+(prevDay?arrow(sell,prevDay.sell):'')+'</td><td class="num">'+prev.toFixed(2)+'</td><td colspan="2">'+makeBar(prev,buy,sell,prevPct)+'</td><td class="num rr-divider" style="font-weight:600;">'+(hasLive?live.toFixed(2):'-')+'</td><td colspan="2">'+makeBar(live,buy,sell,livePct)+'</td><td class="num" style="color:'+(intraday>=0?'#4ade80':'#f87171')+'">'+(intraday!==null?(intraday>=0?'+':'')+intraday.toFixed(2)+'%':'-')+'</td></tr>';
         });
