@@ -537,26 +537,20 @@
     
     function renderBenchmarks(perfData,benchmarks){const daily=perfData.find(p=>p.period==='Daily'),wow=perfData.find(p=>p.period==='WoW'),mtd=perfData.find(p=>p.period==='MTD');const portPerf={'1d':parseFloat(daily?.gain_pct)||0,'5d':parseFloat(wow?.gain_pct)||0,'1m':parseFloat(mtd?.gain_pct)||0};const grid=document.getElementById('pf-benchmark-grid');let html='<div class="header"></div><div class="header num">1D</div><div class="header num">5D</div><div class="header num">1M</div><div class="header num">3M</div>';html+='<div class="label">Portfolio</div><div class="num '+(portPerf['1d']>=0?'positive':'negative')+'">'+(portPerf['1d']>=0?'+':'')+portPerf['1d'].toFixed(2)+'%</div><div class="num '+(portPerf['5d']>=0?'positive':'negative')+'">'+(portPerf['5d']>=0?'+':'')+portPerf['5d'].toFixed(2)+'%</div><div class="num '+(portPerf['1m']>=0?'positive':'negative')+'">'+(portPerf['1m']>=0?'+':'')+portPerf['1m'].toFixed(2)+'%</div><div class="num">-</div>';const benchOrder=['SPX','NDX','RUT'],benchNames={'SPX':'S&P 500','NDX':'NASDAQ','RUT':'Russell 2000'};benchOrder.forEach(sym=>{const b=benchmarks.find(x=>x.symbol===sym);if(b){const d1=parseFloat(b['1d%'])||0,d5=parseFloat(b['5d%'])||0,m1=parseFloat(b['1m%'])||0,m3=parseFloat(b['3m%'])||0;html+='<div class="label">'+benchNames[sym]+'</div><div class="num '+(d1>=0?'positive':'negative')+'">'+(d1>=0?'+':'')+d1.toFixed(2)+'%</div><div class="num '+(d5>=0?'positive':'negative')+'">'+(d5>=0?'+':'')+d5.toFixed(2)+'%</div><div class="num '+(m1>=0?'positive':'negative')+'">'+(m1>=0?'+':'')+m1.toFixed(2)+'%</div><div class="num '+(m3>=0?'positive':'negative')+'">'+(m3>=0?'+':'')+m3.toFixed(2)+'%</div>';}});grid.innerHTML=html;}
     
-    async function fetchRiskRanges(){try{const[rangesRes,liveRes]=await Promise.all([fetch(SUPABASE_URL+'/rest/v1/hedgeye_risk_ranges?select=*&order=signal_date.desc,symbol.asc&limit=300',{headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}}),fetch(SUPABASE_URL+'/rest/v1/live_readings?select=ticker,close,bar_timestamp&order=bar_timestamp.desc',{headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}})]);if(!rangesRes.ok)throw new Error('Fetch failed');const rangesData=await rangesRes.json();const liveData=liveRes.ok?await liveRes.json():[];
-      const tickerToHedgeye={
-        'SP:SPX':'SPX','NASDAQ:NDX':'COMPQ','TVC:RUT':'RUT','TVC:DJI':'DJI',
-        'XETR:DAX':'DAX','SSE:000001':'SSEC','TVC:NI225':'NIKK',
-        'TVC:US02Y':'UST2Y','TVC:US10Y':'UST10Y','TVC:US30Y':'UST30Y',
-        'OANDA:XAUUSD':'GOLD','OANDA:XAGUSD':'SILVER','AMEX:PPLT':'PPLT',
-        'CAPITALCOM:COPPER':'COPPER','OANDA:WTICOUSD':'WTIC',
-        'BLACKBULL:BRENT':'BRENT','PEPPERSTONE:NATGAS':'NATGAS',
-        'TVC:VIX':'VIX',
-        'TVC:DXY':'USD','CMCMARKETS:EURUSD':'EUR/USD','CMCMARKETS:GBPUSD':'GBP/USD',
-        'FX:USDJPY':'USD/YEN','CMCMARKETS:USDCAD':'CAD/USD',
-        'AMEX:XLK':'XLK','AMEX:XLI':'XLI','AMEX:XLV':'XLV','AMEX:XLE':'XLE',
-        'AMEX:XLF':'XLF','AMEX:XLP':'XLP','AMEX:XLU':'XLU','AMEX:XLY':'XLY','AMEX:XLRE':'XLRE',
-        'BITSTAMP:BTCUSD':'BITCOIN',
-        'AMEX:GDX':'GDX','AMEX:URA':'URA',
-        'NASDAQ:AAPL':'AAPL','NASDAQ:AMZN':'AMZN','NASDAQ:GOOGL':'GOOGL',
-        'NASDAQ:META':'META','NASDAQ:MSFT':'MSFT','NASDAQ:NVDA':'NVDA',
-        'NASDAQ:NFLX':'NFLX','NASDAQ:TSLA':'TSLA','NYSE:ORCL':'ORCL'
-      };
-      const livePrices={};liveData.forEach(d=>{const hedgeyeSym=tickerToHedgeye[d.ticker];if(hedgeyeSym)livePrices[hedgeyeSym]=parseFloat(d.close);});renderRiskRanges(rangesData,livePrices);}catch(err){console.error('Failed to fetch risk ranges:',err);}}
+async function fetchRiskRanges(){
+  try{
+    // Use your v_hedgeye_risk_ranges_live view - no client-side work needed!
+    const rangesRes = await fetch(
+      SUPABASE_URL + '/rest/v1/v_hedgeye_risk_ranges_live?select=*&order=category_order.asc,symbol.asc',
+      {headers: {'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY}}
+    );
+    if(!rangesRes.ok) throw new Error('Fetch failed');
+    const rangesData = await rangesRes.json();
+    renderRiskRangesFromView(rangesData);
+  } catch(err) {
+    console.error('Failed to fetch risk ranges:', err);
+  }
+}
     
     function renderRiskRanges(data,livePrices){
       if(!data.length)return;
