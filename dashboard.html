@@ -537,132 +537,133 @@
     
     function renderBenchmarks(perfData,benchmarks){const daily=perfData.find(p=>p.period==='Daily'),wow=perfData.find(p=>p.period==='WoW'),mtd=perfData.find(p=>p.period==='MTD');const portPerf={'1d':parseFloat(daily?.gain_pct)||0,'5d':parseFloat(wow?.gain_pct)||0,'1m':parseFloat(mtd?.gain_pct)||0};const grid=document.getElementById('pf-benchmark-grid');let html='<div class="header"></div><div class="header num">1D</div><div class="header num">5D</div><div class="header num">1M</div><div class="header num">3M</div>';html+='<div class="label">Portfolio</div><div class="num '+(portPerf['1d']>=0?'positive':'negative')+'">'+(portPerf['1d']>=0?'+':'')+portPerf['1d'].toFixed(2)+'%</div><div class="num '+(portPerf['5d']>=0?'positive':'negative')+'">'+(portPerf['5d']>=0?'+':'')+portPerf['5d'].toFixed(2)+'%</div><div class="num '+(portPerf['1m']>=0?'positive':'negative')+'">'+(portPerf['1m']>=0?'+':'')+portPerf['1m'].toFixed(2)+'%</div><div class="num">-</div>';const benchOrder=['SPX','NDX','RUT'],benchNames={'SPX':'S&P 500','NDX':'NASDAQ','RUT':'Russell 2000'};benchOrder.forEach(sym=>{const b=benchmarks.find(x=>x.symbol===sym);if(b){const d1=parseFloat(b['1d%'])||0,d5=parseFloat(b['5d%'])||0,m1=parseFloat(b['1m%'])||0,m3=parseFloat(b['3m%'])||0;html+='<div class="label">'+benchNames[sym]+'</div><div class="num '+(d1>=0?'positive':'negative')+'">'+(d1>=0?'+':'')+d1.toFixed(2)+'%</div><div class="num '+(d5>=0?'positive':'negative')+'">'+(d5>=0?'+':'')+d5.toFixed(2)+'%</div><div class="num '+(m1>=0?'positive':'negative')+'">'+(m1>=0?'+':'')+m1.toFixed(2)+'%</div><div class="num '+(m3>=0?'positive':'negative')+'">'+(m3>=0?'+':'')+m3.toFixed(2)+'%</div>';}});grid.innerHTML=html;}
     
-async function fetchRiskRanges(){
-  try{
-    // Use your v_hedgeye_risk_ranges_live view - no client-side work needed!
-    const rangesRes = await fetch(
-      SUPABASE_URL + '/rest/v1/v_hedgeye_risk_ranges_live?select=*&order=category_order.asc,symbol.asc',
-      {headers: {'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY}}
-    );
-    if(!rangesRes.ok) throw new Error('Fetch failed');
-    const rangesData = await rangesRes.json();
-    renderRiskRangesFromView(rangesData);
-  } catch(err) {
-    console.error('Failed to fetch risk ranges:', err);
-  }
-}
-    
-    function renderRiskRanges(data,livePrices){
-      if(!data.length)return;
-      const dates=[...new Set(data.map(d=>d.signal_date))].sort().reverse();
-      const latestDate=dates[0];
-      const prevDate=dates[1];
-      document.getElementById('rr-date').textContent=latestDate;
-      const todayData=data.filter(d=>d.signal_date===latestDate&&!d.out_bucket);
-      const prevData=prevDate?data.filter(d=>d.signal_date===prevDate):[];
-      const prevMap={};
-      prevData.forEach(d=>{prevMap[d.symbol]={buy:parseFloat(d.buy_level)||0,sell:parseFloat(d.sell_level)||0};});
-      const changes=todayData.filter(d=>d.trend_changed);
-      const changesBody=document.getElementById('rr-changes-body');
-      if(changes.length>0){
-        changesBody.innerHTML=changes.map(c=>'<tr><td><strong>'+c.symbol+'</strong></td><td style="color:'+(c.trend_changed_from==='Bullish'?'#4ade80':'#f87171')+'">'+(c.trend_changed_from||'NEW')+'</td><td style="color:#666">→</td><td style="color:'+(c.trend==='Bullish'?'#4ade80':'#f87171')+';font-weight:600;">'+c.trend+'</td></tr>').join('');
-      }else{
-        changesBody.innerHTML='<tr><td colspan="4" style="color:#666">No trend changes</td></tr>';
+    // FIXED: Use v_hedgeye_risk_ranges_live view instead of client-side mapping
+    async function fetchRiskRanges(){
+      try{
+        const rangesRes = await fetch(
+          SUPABASE_URL + '/rest/v1/v_hedgeye_risk_ranges_live?select=*&order=category_order.asc,symbol.asc',
+          {headers: {'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY}}
+        );
+        if(!rangesRes.ok) throw new Error('Fetch failed');
+        const rangesData = await rangesRes.json();
+        renderRiskRangesFromView(rangesData);
+      } catch(err) {
+        console.error('Failed to fetch risk ranges:', err);
       }
-      const categories={'INDICES':['SPX','COMPQ','RUT','DAX','NIKK','SSEC'],'BONDS':['UST30Y','UST10Y','UST2Y','LQD','HYG'],'COMMODITIES':['GOLD','SILVER','PPLT','COPPER','WTIC','BRENT','NATGAS'],'VOLATILITY':['VIX'],'CURRENCIES':['USD','EUR/USD','GBP/USD','USD/YEN','CAD/USD'],'SECTORS':['XLK','XLF','XLE','XLI','XLV','XLP','XLU','XLY','XLRE'],'CRYPTO':['BITCOIN'],'THEMATIC':['GDX','URA','ITA','IAK','SPMO','PINK'],'STOCKS':['AAPL','AMZN','GOOGL','META','MSFT','NVDA','NFLX','TSLA','ORCL']};
+    }
+
+    // NEW: Function that uses pre-calculated data from your view
+    function renderRiskRangesFromView(data) {
+      if(!data.length) return;
       
-      // FIXED: Handle bonds correctly - for yields, higher = worse for bonds
-      const makeBar=(price,buy,sell,pct,symbol)=>{
-        if(!price||!buy||!sell||buy===sell)return'<div style="display:flex;align-items:center;gap:4px;"><div style="width:50px;height:8px;background:#222;border-radius:2px;"></div><span style="color:#555;font-size:10px;">-</span></div>';
-        
-        // For bond YIELDS, the relationship is inverted from bond prices
-        // Higher yields = lower bond prices = worse for bonds
-        // So for UST10Y: buy=4.30, sell=4.20, current=4.28
-        // This means yield is ABOVE the sell level (4.28 > 4.20) = bearish for bonds
-        const isBondYield = ['UST30Y','UST10Y','UST2Y'].includes(symbol);
-        const isBondETF = ['LQD','HYG'].includes(symbol);
-        
-        let actualPct, range;
-        if (isBondYield) {
-          // For yields: sell < buy typically, and being above sell = bad
-          range = Math.abs(buy - sell);
-          if (range <= 0) {
-            actualPct = 50;
-          } else if (sell < buy) {
-            // Normal case: sell=4.20, buy=4.30, current=4.28
-            // Position = (4.28-4.20)/(4.30-4.20) = 0.8 = 80%
-            actualPct = Math.round(((price - sell) / (buy - sell)) * 100);
-          } else {
-            // Inverted case
-            actualPct = Math.round(((buy - price) / (sell - buy)) * 100);
-          }
-        } else {
-          // Normal assets (stocks, commodities, etc.)
-          range = sell - buy;
-          actualPct = range > 0 ? Math.round(((price - buy) / range) * 100) : 50;
+      // Debug: Check what Bitcoin symbol is being used
+      const bitcoinData = data.find(d => d.symbol && (d.symbol.includes('BTC') || d.symbol.includes('BITCOIN')));
+      if(bitcoinData) {
+        console.log('Bitcoin data found:', bitcoinData.symbol, 'Live price:', bitcoinData.live_price);
+      } else {
+        console.log('No Bitcoin data found. Available symbols:', data.map(d => d.symbol));
+      }
+      
+      const latestDate = data[0]?.signal_date || '2026-02-11';
+      document.getElementById('rr-date').textContent = latestDate;
+      
+      const activeData = data.filter(d => !d.out_bucket);
+      const changes = activeData.filter(d => d.trend_changed);
+      
+      const changesBody = document.getElementById('rr-changes-body');
+      if(changes.length > 0) {
+        changesBody.innerHTML = changes.map(c => 
+          '<tr><td><strong>' + c.symbol + '</strong></td>' +
+          '<td style="color:' + (c.trend_changed_from === 'BULLISH' ? '#4ade80' : c.trend_changed_from === 'BEARISH' ? '#f87171' : '#666') + '">' + 
+          (c.trend_changed_from || 'NEW') + '</td>' +
+          '<td style="color:#666">→</td>' +
+          '<td style="color:' + (c.trend === 'BULLISH' ? '#4ade80' : c.trend === 'BEARISH' ? '#f87171' : '#666') + ';font-weight:600;">' + 
+          c.trend + '</td></tr>'
+        ).join('');
+      } else {
+        changesBody.innerHTML = '<tr><td colspan="4" style="color:#666">No trend changes</td></tr>';
+      }
+      
+      const categories = {};
+      activeData.forEach(d => {
+        const cat = d.category || 'OTHER';
+        if (!categories[cat]) categories[cat] = [];
+        categories[cat].push(d);
+      });
+      
+      const makeBar = (rangePct, rangeStatus) => {
+        if (rangePct === null || rangeStatus === null) {
+          return '<div style="display:flex;align-items:center;gap:4px;"><div style="width:50px;height:8px;background:#222;border-radius:2px;"></div><span style="color:#555;font-size:10px;">-</span></div>';
         }
         
-        let barColor, labelText, labelColor;
-        if(actualPct > 100) {
-          barColor = '#f87171'; labelText = 'OVER'; labelColor = '#f87171';
-        } else if(actualPct < 0) {
+        let barColor = '#666', labelText = Math.round(rangePct) + '%', labelColor = '#999';
+        
+        if (rangeStatus === 'UNDER') {
           barColor = '#4ade80'; labelText = 'UNDER'; labelColor = '#4ade80';
-        } else if(actualPct <= 25) {
-          barColor = '#4ade80'; // Green zone (good)
-        } else if(actualPct <= 75) {
-          barColor = '#666'; labelText = actualPct + '%'; labelColor = '#999'; // Grey for mid-range
-        } else {
-          barColor = '#f87171'; // Red zone (bad)
+        } else if (rangeStatus === 'OVER') {
+          barColor = '#f87171'; labelText = 'OVER'; labelColor = '#f87171';
+        } else if (rangePct <= 25) {
+          barColor = '#4ade80';
+        } else if (rangePct >= 75) {
+          barColor = '#f87171';
         }
         
-        if(!labelText) { labelText = actualPct + '%'; labelColor = '#999'; }
-        
-        const clampedPct = Math.max(0, Math.min(100, actualPct));
-        return '<div style="display:flex;align-items:center;gap:4px;"><div style="position:relative;width:50px;height:8px;background:#222;border-radius:2px;"><div style="position:absolute;left:0;top:0;height:100%;width:' + clampedPct + '%;background:' + barColor + ';border-radius:2px;"></div></div><span style="color:' + labelColor + ';font-size:10px;font-weight:' + (actualPct > 100 || actualPct < 0 ? '600' : '400') + ';">' + labelText + '</span></div>';
+        const clampedPct = Math.max(0, Math.min(100, rangePct));
+        return '<div style="display:flex;align-items:center;gap:4px;">' +
+               '<div style="position:relative;width:50px;height:8px;background:#222;border-radius:2px;">' +
+               '<div style="position:absolute;left:0;top:0;height:100%;width:' + clampedPct + '%;background:' + barColor + ';border-radius:2px;"></div></div>' +
+               '<span style="color:' + labelColor + ';font-size:10px;font-weight:' + (rangeStatus === 'UNDER' || rangeStatus === 'OVER' ? '600' : '400') + ';">' + labelText + '</span></div>';
       };
       
-      const arrow=(curr,prev)=>{if(!prev||curr===prev)return'';return curr>prev?'<span style="color:#4ade80;font-size:9px;margin-left:2px;">▲</span>':'<span style="color:#f87171;font-size:9px;margin-left:2px;">▼</span>';};
+      let html = '';
       
-      let html='';
-      for(const[category,symbols]of Object.entries(categories)){
-        const catData=todayData.filter(d=>symbols.includes(d.symbol));
-        if(catData.length===0)continue;
-        catData.sort((a,b)=>symbols.indexOf(a.symbol)-symbols.indexOf(b.symbol));
-        html+='<tr><td colspan="11" class="rr-cat">'+category+'</td></tr>';
-        catData.forEach(d=>{
-          const trendColor=d.trend==='Bullish'?'#4ade80':d.trend==='Bearish'?'#f87171':'#facc15';
-          const buy=parseFloat(d.buy_level)||0,sell=parseFloat(d.sell_level)||0,prev=parseFloat(d.prev_close)||0;
-          const prevDay=prevMap[d.symbol];
-          const live=livePrices[d.symbol];
-          const hasLive=live!==undefined&&live!==null;
-          const intraday=hasLive&&prev?((live-prev)/prev*100):null;
-          html+='<tr><td><strong>'+d.symbol+'</strong></td><td><span style="color:'+trendColor+';font-weight:600;">'+d.trend+'</span></td><td class="num" style="color:#4ade80;">'+buy.toFixed(2)+(prevDay?arrow(buy,prevDay.buy):'')+'</td><td class="num" style="color:#f87171;">'+sell.toFixed(2)+(prevDay?arrow(sell,prevDay.sell):'')+'</td><td class="num">'+prev.toFixed(2)+'</td><td colspan="2">'+makeBar(prev,buy,sell,null,d.symbol)+'</td><td class="num rr-divider" style="font-weight:600;">'+(hasLive?live.toFixed(2):'-')+'</td><td colspan="2">'+(hasLive?makeBar(live,buy,sell,null,d.symbol):makeBar(null,buy,sell,null,d.symbol))+'</td><td class="num" style="color:'+(intraday>=0?'#4ade80':'#f87171')+'">'+(intraday!==null?(intraday>=0?'+':'')+intraday.toFixed(2)+'%':'-')+'</td></tr>';
+      Object.entries(categories).sort((a, b) => {
+        const aOrder = a[1][0]?.category_order || 999;
+        const bOrder = b[1][0]?.category_order || 999;
+        return aOrder - bOrder;
+      }).forEach(([category, symbols]) => {
+        html += '<tr><td colspan="11" class="rr-cat">' + category + '</td></tr>';
+        
+        symbols.forEach(d => {
+          const trendColor = d.trend === 'BULLISH' ? '#4ade80' : d.trend === 'BEARISH' ? '#f87171' : '#666';
+          const buy = parseFloat(d.buy_level) || 0;
+          const sell = parseFloat(d.sell_level) || 0;
+          const prev = parseFloat(d.prev_close) || 0;
+          const live = parseFloat(d.live_price);
+          const hasLive = live !== null && live !== undefined && !isNaN(live);
+          
+          // Add arrows for buy/sell level changes (now that view has these columns)
+          const prevBuy = parseFloat(d.prev_buy_level);
+          const prevSell = parseFloat(d.prev_sell_level);
+          const buyArrow = prevBuy && buy !== prevBuy ? (buy > prevBuy ? '<span style="color:#4ade80;font-size:9px;margin-left:2px;">▲</span>' : '<span style="color:#f87171;font-size:9px;margin-left:2px;">▼</span>') : '';
+          const sellArrow = prevSell && sell !== prevSell ? (sell > prevSell ? '<span style="color:#4ade80;font-size:9px;margin-left:2px;">▲</span>' : '<span style="color:#f87171;font-size:9px;margin-left:2px;">▼</span>') : '';
+          
+          const rangePct = parseFloat(d.range_pct);
+          const rangeStatus = d.range_status;
+          const intraday = hasLive && prev ? ((live - prev) / prev * 100) : null;
+          
+          html += '<tr>' +
+                  '<td><strong>' + d.symbol + '</strong></td>' +
+                  '<td><span style="color:' + trendColor + ';font-weight:600;">' + d.trend + '</span></td>' +
+                  '<td class="num" style="color:#4ade80;">' + buy.toFixed(2) + buyArrow + '</td>' +
+                  '<td class="num" style="color:#f87171;">' + sell.toFixed(2) + sellArrow + '</td>' +
+                  '<td class="num">' + prev.toFixed(2) + '</td>' +
+                  '<td colspan="2">' + makeBar(rangePct, rangeStatus) + '</td>' +
+                  '<td class="num rr-divider" style="font-weight:600;">' + (hasLive ? live.toFixed(2) : '-') + '</td>' +
+                  '<td colspan="2">' + makeBar(rangePct, rangeStatus) + '</td>' +
+                  '<td class="num" style="color:' + (intraday >= 0 ? '#4ade80' : '#f87171') + '">' + 
+                  (intraday !== null ? (intraday >= 0 ? '+' : '') + intraday.toFixed(2) + '%' : '-') + '</td>' +
+                  '</tr>';
         });
-      }
-      document.getElementById('rr-body').innerHTML=html;
-    }
-    
-    // FIXED MACRO DATA FETCHING - Uses current v_macro_* views instead of deprecated v_cmd_*
-    async function fetchMacroData(){try{const[summaryRes,sectorsRes,volRes,yieldRes,quadsRes]=await Promise.all([fetch(SUPABASE_URL+'/rest/v1/v_macro_summary?select=*',{headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}}),fetch(SUPABASE_URL+'/rest/v1/v_macro_group_performance?select=*',{headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}}),fetch(SUPABASE_URL+'/rest/v1/v_macro_volatility_grid?select=*',{headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}}),fetch(SUPABASE_URL+'/rest/v1/v_macro_yield_curve?select=*',{headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}}),fetch(SUPABASE_URL+'/rest/v1/quads?select=*',{headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}})]);if(!summaryRes.ok||!sectorsRes.ok||!volRes.ok||!yieldRes.ok||!quadsRes.ok)return;const summary=await summaryRes.json(),sectors=await sectorsRes.json(),vol=await volRes.json(),yields=await yieldRes.json(),quads=await quadsRes.json();if(summary.length)renderMacroSummary(summary);if(sectors.length)renderMacroSectors(sectors);if(vol.length)renderMacroVol(vol);if(yields.length)renderMacroYield(yields);if(quads.length)renderMacroQuads(quads);}catch(err){console.error('Failed to fetch macro data:',err);}}
-    
-    // FIXED: Better regime section with clear color coding explanation
-    function renderMacroSummary(data){
-      // Custom regime data - pull key individual indicators  
-      const regimeIndicators = [
-        {item: 'DXY', level: '97.77', status: '⛔ AVOID', notes: 'USD Index: Trend -10 bearish, momentum weak'},
-        {item: 'GBP/USD', level: '1.2478', status: '🟢 BUY (BREAKOUT)', notes: 'Pound strengthening: Z=2.47, trend 60 building'},
-        {item: 'EUR/USD', level: '1.0432', status: '🟢 BUY (BREAKOUT)', notes: 'Euro strengthening: Z=2.24, trend 52 building'}, 
-        {item: 'VIX', level: '21.0', status: '⚪ NEUTRAL', notes: 'Volatility elevated but not extreme'}
-      ];
+      });
       
-      document.getElementById('macro-regime-body').innerHTML = regimeIndicators.map(d => 
-        '<tr><td><strong>' + d.item + '</strong></td><td class="num">' + 
-        d.level + '</td><td>' + d.status + '</td><td>-</td><td style="color:#888;font-size:11px;max-width:300px;">' + 
-        d.notes + '</td></tr>'
-      ).join('');
+      document.getElementById('rr-body').innerHTML = html;
     }
     
-    function renderMacroSectors(data){data.sort((a,b)=>(parseFloat(b['ytd_pct'])||0)-(parseFloat(a['ytd_pct'])||0));document.getElementById('macro-sectors-body').innerHTML=data.map(d=>{const d1=parseFloat(d['avg_1d_pct'])||0,m1=parseFloat(d['avg_1m_pct'])||0,ytd=parseFloat(d['ytd_pct'])||0;return'<tr><td><strong>'+d.group_name+'</strong></td><td class="num">'+d.ticker_count+'</td><td class="num" style="color:'+(d1>=0?'#4ade80':'#f87171')+'">'+d1.toFixed(1)+'%</td><td class="num" style="color:'+(m1>=0?'#4ade80':'#f87171')+'">'+m1.toFixed(1)+'%</td><td class="num" style="color:'+(ytd>=0?'#4ade80':'#f87171')+'">'+ytd.toFixed(1)+'%</td><td class="num">'+d.breadth+'</td><td>'+(d.status||'-')+'</td></tr>';}).join('');}
+    async function fetchMacroData(){try{const[regimeRes,sectorsRes,volRes,yieldRes,quadsRes]=await Promise.all([fetch(SUPABASE_URL+'/rest/v1/v_cmd_market_regime?select=*',{headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}}),fetch(SUPABASE_URL+'/rest/v1/v_cmd_sector_performance?select=*',{headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}}),fetch(SUPABASE_URL+'/rest/v1/v_macro_volatility_grid?select=*',{headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}}),fetch(SUPABASE_URL+'/rest/v1/v_macro_yield_curve?select=*',{headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}}),fetch(SUPABASE_URL+'/rest/v1/quads?select=*',{headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}})]);if(!regimeRes.ok||!sectorsRes.ok||!volRes.ok||!yieldRes.ok||!quadsRes.ok)return;const regime=await regimeRes.json(),sectors=await sectorsRes.json(),vol=await volRes.json(),yields=await yieldRes.json(),quads=await quadsRes.json();if(regime.length)renderMacroRegime(regime);if(sectors.length)renderMacroSectors(sectors);if(vol.length)renderMacroVol(vol);if(yields.length)renderMacroYield(yields);if(quads.length)renderMacroQuads(quads);}catch(err){console.error('Failed to fetch macro data:',err);}}
+    
+    function renderMacroRegime(data){document.getElementById('macro-regime-body').innerHTML=data.map(d=>'<tr><td><strong>'+d.indicator+'</strong></td><td class="num">'+parseFloat(d.level).toFixed(2)+'</td><td>'+(d.regime||'-')+'</td><td>'+(d.velocity||'-')+'</td><td style="color:#888;font-size:11px;max-width:300px;">'+(d.implication||'-')+'</td></tr>').join('');}
+    function renderMacroSectors(data){data.sort((a,b)=>(parseFloat(b['YTD'])||0)-(parseFloat(a['YTD'])||0));document.getElementById('macro-sectors-body').innerHTML=data.map(d=>{const d1=parseFloat(d['1D'])||0,m1=parseFloat(d['1M'])||0,ytd=parseFloat(d['YTD'])||0;return'<tr><td><strong>'+d.group_name+'</strong></td><td class="num">'+d.tickers+'</td><td class="num" style="color:'+(d1>=0?'#4ade80':'#f87171')+'">'+d1.toFixed(1)+'%</td><td class="num" style="color:'+(m1>=0?'#4ade80':'#f87171')+'">'+m1.toFixed(1)+'%</td><td class="num" style="color:'+(ytd>=0?'#4ade80':'#f87171')+'">'+ytd.toFixed(1)+'%</td><td class="num">'+d.breadth+'</td><td>'+(d.status||'-')+'</td></tr>';}).join('');}
     function renderMacroVol(data){document.getElementById('macro-vol-body').innerHTML=data.map(d=>{const dod=parseFloat(d.dod_pct)||0,wow=parseFloat(d.wow_pct)||0,mom=parseFloat(d.mom_pct);return'<tr><td><strong>'+d.vol_index+'</strong></td><td class="num">'+parseFloat(d.current_level).toFixed(2)+'</td><td class="num" style="color:'+(dod>=0?'#f87171':'#4ade80')+'">'+dod.toFixed(1)+'%</td><td class="num" style="color:'+(wow>=0?'#f87171':'#4ade80')+'">'+wow.toFixed(1)+'%</td><td class="num" style="color:'+(isNaN(mom)?'#666':(mom>=0?'#f87171':'#4ade80'))+'">'+(isNaN(mom)?'-':mom.toFixed(1)+'%')+'</td><td>'+(d.vol_state||'-')+'</td></tr>';}).join('');}
     function renderMacroYield(data){data.sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));document.getElementById('macro-yield-body').innerHTML=data.map(d=>{const dod=parseFloat(d.dod_bps)||0,wow=parseFloat(d.wow_bps)||0,mom=parseFloat(d.mom_bps)||0;return'<tr><td><strong>'+d.series+'</strong></td><td class="num">'+parseFloat(d.current_yield).toFixed(3)+'</td><td class="num" style="color:'+(dod>=0?'#f87171':'#4ade80')+'">'+dod.toFixed(1)+'</td><td class="num" style="color:'+(wow>=0?'#f87171':'#4ade80')+'">'+wow.toFixed(1)+'</td><td class="num" style="color:'+(mom>=0?'#f87171':'#4ade80')+'">'+mom.toFixed(1)+'</td></tr>';}).join('');}
     function renderMacroQuads(data){const quarters=[...new Set(data.map(d=>d.quarter))].sort();const countries={};data.forEach(d=>{if(!countries[d.country])countries[d.country]={};countries[d.country][d.quarter]=d.quad;});const sortOrder=['United States','United Kingdom'];const sortedCountries=Object.keys(countries).sort((a,b)=>{const aIdx=sortOrder.indexOf(a),bIdx=sortOrder.indexOf(b);if(aIdx>=0&&bIdx>=0)return aIdx-bIdx;if(aIdx>=0)return -1;if(bIdx>=0)return 1;return a.localeCompare(b);});const quadColor=(q)=>{if(q===1)return'#4ade80';if(q===2)return'#facc15';if(q===3)return'#fb923c';if(q===4)return'#f87171';return'#666';};const currentQ=quarters.length>1?quarters[1]:quarters[0];const headerRow=document.querySelector('#macro-quads-body').closest('table').querySelector('thead tr');headerRow.innerHTML='<th>Country</th>'+quarters.map(q=>'<th class="num"'+(q===currentQ?' style="background:#1a2a1a;"':'')+'>'+q.replace('20','\'')+'</th>').join('');document.getElementById('macro-quads-body').innerHTML=sortedCountries.map(country=>{const c=countries[country];return'<tr><td><strong>'+country+'</strong></td>'+quarters.map(q=>'<td class="num" style="'+(q===currentQ?'background:#1a2a1a;font-weight:600;':'')+'color:'+quadColor(c[q])+'">Q'+(c[q]||'-')+'</td>').join('')+'</tr>';}).join('');}
